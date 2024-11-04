@@ -22,6 +22,8 @@ metadata:
   namespace: tekton-ecosystem-tenant
 spec:
   params:
+  - name: component-name
+    value: tektoncd-chains-main-controller
   - name: git-url
     value: '{{source_url}}'
   - name: revision
