@@ -11,5 +11,5 @@ metadata:
     appstudio.redhat.com/application: tektoncd-chains-1-18
 spec:
   image:
-   name: 1-18/chains-controller-rhel9
+   name: 1-18/chains-controllerrhel9
    visibility: public
