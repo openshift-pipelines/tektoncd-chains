@@ -31,7 +31,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.4.0
 	github.com/stretchr/testify v1.10.0
 	github.com/tektoncd/pipeline v0.66.0
-	github.com/tektoncd/plumbing v0.0.0-20250115133002-f515628dffea
+	github.com/tektoncd/plumbing v0.0.0-20250219154456-490be739c4ee
 	go.opencensus.io v0.24.0
 	go.uber.org/zap v1.27.0
 	gocloud.dev v0.40.0
