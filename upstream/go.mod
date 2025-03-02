@@ -10,14 +10,14 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/golangci/golangci-lint v1.63.4
 	github.com/google/addlicense v1.1.1
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20240108195214-a0658aa1d0cc
 	github.com/google/go-licenses v1.6.0
 	github.com/grafeas/grafeas v0.2.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/in-toto/attestation v1.1.1
-	github.com/in-toto/in-toto-golang v0.9.1-0.20240317085821-8e2966059a09
+	github.com/in-toto/in-toto-golang v0.9.1-0.20250227220835-ab8be41e27ef
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/secure-systems-lab/go-securesystemslib v0.9.0
@@ -199,7 +199,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible // indirect
 	github.com/go-critic/go-critic v0.11.5 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
@@ -384,7 +384,7 @@ require (
 	github.com/sourcegraph/go-diff v0.7.0 // indirect
 	github.com/spf13/afero v1.11.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
+	github.com/spf13/cobra v1.9.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/spf13/viper v1.19.0 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect

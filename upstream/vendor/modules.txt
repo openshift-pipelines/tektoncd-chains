@@ -809,7 +809,7 @@ github.com/go-jose/go-jose/v3
 github.com/go-jose/go-jose/v3/cipher
 github.com/go-jose/go-jose/v3/json
 github.com/go-jose/go-jose/v3/jwt
-# github.com/go-jose/go-jose/v4 v4.0.4
+# github.com/go-jose/go-jose/v4 v4.0.5
 ## explicit; go 1.21
 github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
@@ -1157,8 +1157,8 @@ github.com/google/gnostic-models/extensions
 github.com/google/gnostic-models/jsonschema
 github.com/google/gnostic-models/openapiv2
 github.com/google/gnostic-models/openapiv3
-# github.com/google/go-cmp v0.6.0
-## explicit; go 1.13
+# github.com/google/go-cmp v0.7.0
+## explicit; go 1.21
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
 github.com/google/go-cmp/cmp/internal/diff
@@ -1362,8 +1362,8 @@ github.com/hexops/gotextdiff/span
 ## explicit; go 1.20
 github.com/in-toto/attestation/go/predicates/provenance/v1
 github.com/in-toto/attestation/go/v1
-# github.com/in-toto/in-toto-golang v0.9.1-0.20240317085821-8e2966059a09
-## explicit; go 1.20
+# github.com/in-toto/in-toto-golang v0.9.1-0.20250227220835-ab8be41e27ef
+## explicit; go 1.22.7
 github.com/in-toto/in-toto-golang/in_toto
 github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common
 github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.1
@@ -1954,7 +1954,7 @@ github.com/spf13/afero/mem
 # github.com/spf13/cast v1.7.0
 ## explicit; go 1.19
 github.com/spf13/cast
-# github.com/spf13/cobra v1.8.1
+# github.com/spf13/cobra v1.9.1
 ## explicit; go 1.15
 github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.6
