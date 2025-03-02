@@ -2123,7 +2123,7 @@ github.com/tektoncd/pipeline/pkg/result
 github.com/tektoncd/pipeline/pkg/spire/config
 github.com/tektoncd/pipeline/pkg/substitution
 github.com/tektoncd/pipeline/test
-# github.com/tektoncd/plumbing v0.0.0-20250115133002-f515628dffea
+# github.com/tektoncd/plumbing v0.0.0-20250225103701-d7e337e32575
 ## explicit; go 1.22
 github.com/tektoncd/plumbing
 github.com/tektoncd/plumbing/scripts
