@@ -29,6 +29,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tektoncd/pipeline v0.56.0
 	github.com/tektoncd/plumbing v0.0.0-20230907180608-5625252a2de1
+	go.opencensus.io v0.24.0
 	go.uber.org/zap v1.26.0
 	gocloud.dev v0.36.0
 	gocloud.dev/docstore/mongodocstore v0.36.0
@@ -153,7 +154,7 @@ require (
 	github.com/containerd/stargz-snapshotter/estargz v0.14.3 // indirect
 	github.com/coreos/go-oidc/v3 v3.9.0 // indirect
 	github.com/curioswitch/go-reassign v0.2.0 // indirect
-	github.com/cyberphone/json-canonicalization v0.0.0-20231011164504-785e29786b46 // indirect
+	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 // indirect
 	github.com/daixiang0/gci v0.11.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
@@ -400,7 +401,6 @@ require (
 	gitlab.com/bosi/decorder v0.4.1 // indirect
 	go-simpler.org/sloglint v0.1.2 // indirect
 	go.mongodb.org/mongo-driver v1.13.1 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect
 	go.opentelemetry.io/otel v1.21.0 // indirect
