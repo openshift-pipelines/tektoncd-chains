@@ -1,6 +1,8 @@
 module github.com/tektoncd/chains
 
-go 1.21
+go 1.22.0
+
+toolchain go1.22.9
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
@@ -29,6 +31,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tektoncd/pipeline v0.56.0
 	github.com/tektoncd/plumbing v0.0.0-20230907180608-5625252a2de1
+	go.opencensus.io v0.24.0
 	go.uber.org/zap v1.26.0
 	gocloud.dev v0.36.0
 	gocloud.dev/docstore/mongodocstore v0.36.0
@@ -214,7 +217,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2 // indirect
-	github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a // indirect
+	github.com/golangci/dupl v0.0.0-20250308024227-f665c8d69b32 // indirect
 	github.com/golangci/go-misc v0.0.0-20220329215616-d24fe342adfe // indirect
 	github.com/golangci/gofmt v0.0.0-20231018234816-f50ced29576e // indirect
 	github.com/golangci/lint-1 v0.0.0-20191013205115-297bf364a8e0 // indirect
@@ -400,7 +403,6 @@ require (
 	gitlab.com/bosi/decorder v0.4.1 // indirect
 	go-simpler.org/sloglint v0.1.2 // indirect
 	go.mongodb.org/mongo-driver v1.13.1 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect
 	go.opentelemetry.io/otel v1.21.0 // indirect
