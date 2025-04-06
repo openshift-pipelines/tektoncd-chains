@@ -15,7 +15,7 @@ import (
 	"os"
 	"sync"
 
-	"golang.org/x/tools/internal/typeparams"
+	"golang.org/x/tools/internal/versions"
 )
 
 // NewProgram returns a new SSA Program.
@@ -39,7 +39,7 @@ func NewProgram(fset *token.FileSet, mode BuilderMode) *Program {
 		packages:      make(map[*types.Package]*Package),
 		mode:          mode,
 		canon:         newCanonizer(),
-		ctxt:          typeparams.NewContext(),
+		ctxt:          types.NewContext(),
 		parameterized: tpWalker{seen: make(map[types.Type]bool)},
 	}
 }
@@ -116,10 +116,10 @@ func createFunction(prog *Program, obj *types.Func, name string, syntax ast.Node
 	sig := obj.Type().(*types.Signature)
 
 	// Collect type parameters.
-	var tparams *typeparams.TypeParamList
-	if rtparams := typeparams.RecvTypeParams(sig); rtparams.Len() > 0 {
+	var tparams *types.TypeParamList
+	if rtparams := sig.RecvTypeParams(); rtparams.Len() > 0 {
 		tparams = rtparams // method of generic type
-	} else if sigparams := typeparams.ForSignature(sig); sigparams.Len() > 0 {
+	} else if sigparams := sig.TypeParams(); sigparams.Len() > 0 {
 		tparams = sigparams // generic function
 	}
 
@@ -245,7 +245,7 @@ func (prog *Program) CreatePackage(pkg *types.Package, files []*ast.File, info *
 	if len(files) > 0 {
 		// Go source package.
 		for _, file := range files {
-			goversion := goversionOf(p, file)
+			goversion := versions.Lang(versions.FileVersion(p.info, file))
 			for _, decl := range file.Decls {
 				membersFromDecl(p, decl, goversion)
 			}
@@ -259,6 +259,7 @@ func (prog *Program) CreatePackage(pkg *types.Package, files []*ast.File, info *
 			obj := scope.Lookup(name)
 			memberFromObject(p, obj, nil, "")
 			if obj, ok := obj.(*types.TypeName); ok {
+				// No Unalias: aliases should not duplicate methods.
 				if named, ok := obj.Type().(*types.Named); ok {
 					for i, n := 0, named.NumMethods(); i < n; i++ {
 						memberFromObject(p, named.Method(i), nil, "")

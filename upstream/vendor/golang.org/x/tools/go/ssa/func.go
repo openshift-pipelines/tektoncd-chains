@@ -45,7 +45,7 @@ func (f *Function) typ(T types.Type) types.Type {
 // If id is an Instance, returns info.Instances[id].Type.
 // Otherwise returns f.typeOf(id).
 func (f *Function) instanceType(id *ast.Ident) types.Type {
-	if t, ok := typeparams.GetInstances(f.info)[id]; ok {
+	if t, ok := f.info.Instances[id]; ok {
 		return t.Type
 	}
 	return f.typeOf(id)
@@ -533,7 +533,7 @@ func WriteFunction(buf *bytes.Buffer, f *Function) {
 	if len(f.Locals) > 0 {
 		buf.WriteString("# Locals:\n")
 		for i, l := range f.Locals {
-			fmt.Fprintf(buf, "# % 3d:\t%s %s\n", i, l.Name(), relType(mustDeref(l.Type()), from))
+			fmt.Fprintf(buf, "# % 3d:\t%s %s\n", i, l.Name(), relType(typeparams.MustDeref(l.Type()), from))
 		}
 	}
 	writeSignature(buf, from, f.Name(), f.Signature)
@@ -587,6 +587,12 @@ func WriteFunction(buf *bytes.Buffer, f *Function) {
 				buf.WriteString("<deleted>")
 			default:
 				buf.WriteString(instr.String())
+			}
+			// -mode=S: show line numbers
+			if f.Prog.mode&LogSource != 0 {
+				if pos := instr.Pos(); pos.IsValid() {
+					fmt.Fprintf(buf, " L%d", f.Prog.Fset.Position(pos).Line)
+				}
 			}
 			buf.WriteString("\n")
 		}
