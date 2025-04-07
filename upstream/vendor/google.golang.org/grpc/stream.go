@@ -27,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/trace"
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/encoding"
@@ -430,7 +431,7 @@ func (cs *clientStream) newAttemptLocked(isTransparent bool) (*csAttempt, error)
 	var trInfo *traceInfo
 	if EnableTracing {
 		trInfo = &traceInfo{
-			tr: newTrace("grpc.Sent."+methodFamily(method), method),
+			tr: trace.New("grpc.Sent."+methodFamily(method), method),
 			firstLine: firstLine{
 				client: true,
 			},
@@ -439,7 +440,7 @@ func (cs *clientStream) newAttemptLocked(isTransparent bool) (*csAttempt, error)
 			trInfo.firstLine.deadline = time.Until(deadline)
 		}
 		trInfo.tr.LazyLog(&trInfo.firstLine, false)
-		ctx = newTraceContext(ctx, trInfo.tr)
+		ctx = trace.NewContext(ctx, trInfo.tr)
 	}
 
 	if cs.cc.parsedTarget.URL.Scheme == internal.GRPCResolverSchemeExtraMetadata {
