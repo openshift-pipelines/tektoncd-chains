@@ -29,6 +29,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/tektoncd/pipeline v0.56.0
 	github.com/tektoncd/plumbing v0.0.0-20230907180608-5625252a2de1
+	go.opencensus.io v0.24.0
 	go.uber.org/zap v1.26.0
 	gocloud.dev v0.36.0
 	gocloud.dev/docstore/mongodocstore v0.36.0
@@ -158,7 +159,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/denis-tingaikin/go-header v0.4.3 // indirect
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
-	github.com/digitorus/timestamp v0.0.0-20230902153158-687734543647 // indirect
+	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/docker/cli v24.0.7+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
@@ -400,7 +401,6 @@ require (
 	gitlab.com/bosi/decorder v0.4.1 // indirect
 	go-simpler.org/sloglint v0.1.2 // indirect
 	go.mongodb.org/mongo-driver v1.13.1 // indirect
-	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.46.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.46.1 // indirect
 	go.opentelemetry.io/otel v1.21.0 // indirect
