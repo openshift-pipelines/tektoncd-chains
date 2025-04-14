@@ -27,15 +27,13 @@ type Program struct {
 	mode       BuilderMode                 // set of mode bits for SSA construction
 	MethodSets typeutil.MethodSetCache     // cache of type-checker's method-sets
 
-	canon *canonizer     // type canonicalization map
-	ctxt  *types.Context // cache for type checking instantiations
+	canon *canonizer          // type canonicalization map
+	ctxt  *typeparams.Context // cache for type checking instantiations
 
 	methodsMu  sync.Mutex
 	methodSets typeutil.Map // maps type to its concrete *methodSet
 
-	// memoization of whether a type refers to type parameters
-	hasParamsMu sync.Mutex
-	hasParams   typeparams.Free
+	parameterized tpWalker // memoization of whether a type refers to type parameters
 
 	runtimeTypesMu sync.Mutex
 	runtimeTypes   typeutil.Map // set of runtime types (from MakeInterface)
@@ -341,10 +339,10 @@ type Function struct {
 	referrers []Instruction // referring instructions (iff Parent() != nil)
 	anonIdx   int32         // position of a nested function in parent's AnonFuncs. fn.Parent()!=nil => fn.Parent().AnonFunc[fn.anonIdx] == fn.
 
-	typeparams     *types.TypeParamList // type parameters of this function. typeparams.Len() > 0 => generic or instance of generic function
-	typeargs       []types.Type         // type arguments that instantiated typeparams. len(typeargs) > 0 => instance of generic function
-	topLevelOrigin *Function            // the origin function if this is an instance of a source function. nil if Parent()!=nil.
-	generic        *generic             // instances of this function, if generic
+	typeparams     *typeparams.TypeParamList // type parameters of this function. typeparams.Len() > 0 => generic or instance of generic function
+	typeargs       []types.Type              // type arguments that instantiated typeparams. len(typeargs) > 0 => instance of generic function
+	topLevelOrigin *Function                 // the origin function if this is an instance of a source function. nil if Parent()!=nil.
+	generic        *generic                  // instances of this function, if generic
 
 	// The following fields are cleared after building.
 	currentBlock *BasicBlock              // where to emit code
@@ -692,8 +690,8 @@ type Convert struct {
 type MultiConvert struct {
 	register
 	X    Value
-	from []*types.Term
-	to   []*types.Term
+	from []*typeparams.Term
+	to   []*typeparams.Term
 }
 
 // ChangeInterface constructs a value of one interface type from a
@@ -1541,7 +1539,10 @@ func (v *Function) Referrers() *[]Instruction {
 
 // TypeParams are the function's type parameters if generic or the
 // type parameters that were instantiated if fn is an instantiation.
-func (fn *Function) TypeParams() *types.TypeParamList {
+//
+// TODO(taking): declare result type as *types.TypeParamList
+// after we drop support for go1.17.
+func (fn *Function) TypeParams() *typeparams.TypeParamList {
 	return fn.typeparams
 }
 
