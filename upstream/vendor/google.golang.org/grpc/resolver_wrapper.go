@@ -75,7 +75,6 @@ func (ccr *ccResolverWrapper) start() error {
 			DialCreds:            ccr.cc.dopts.copts.TransportCredentials,
 			CredsBundle:          ccr.cc.dopts.copts.CredsBundle,
 			Dialer:               ccr.cc.dopts.copts.Dialer,
-			Authority:            ccr.cc.authority,
 		}
 		var err error
 		ccr.resolver, err = ccr.cc.resolverBuilder.Build(ccr.cc.parsedTarget, ccr, opts)

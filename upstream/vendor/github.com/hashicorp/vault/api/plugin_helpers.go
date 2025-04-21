@@ -14,6 +14,7 @@ import (
 	"os"
 
 	"github.com/go-jose/go-jose/v3/jwt"
+
 	"github.com/hashicorp/errwrap"
 )
 
@@ -50,7 +51,6 @@ type PluginAPIClientMeta struct {
 	flagCAPath     string
 	flagClientCert string
 	flagClientKey  string
-	flagServerName string
 	flagInsecure   bool
 }
 
@@ -62,7 +62,6 @@ func (f *PluginAPIClientMeta) FlagSet() *flag.FlagSet {
 	fs.StringVar(&f.flagCAPath, "ca-path", "", "")
 	fs.StringVar(&f.flagClientCert, "client-cert", "", "")
 	fs.StringVar(&f.flagClientKey, "client-key", "", "")
-	fs.StringVar(&f.flagServerName, "tls-server-name", "", "")
 	fs.BoolVar(&f.flagInsecure, "tls-skip-verify", false, "")
 
 	return fs
@@ -71,13 +70,13 @@ func (f *PluginAPIClientMeta) FlagSet() *flag.FlagSet {
 // GetTLSConfig will return a TLSConfig based off the values from the flags
 func (f *PluginAPIClientMeta) GetTLSConfig() *TLSConfig {
 	// If we need custom TLS configuration, then set it
-	if f.flagCACert != "" || f.flagCAPath != "" || f.flagClientCert != "" || f.flagClientKey != "" || f.flagInsecure || f.flagServerName != "" {
+	if f.flagCACert != "" || f.flagCAPath != "" || f.flagClientCert != "" || f.flagClientKey != "" || f.flagInsecure {
 		t := &TLSConfig{
 			CACert:        f.flagCACert,
 			CAPath:        f.flagCAPath,
 			ClientCert:    f.flagClientCert,
 			ClientKey:     f.flagClientKey,
-			TLSServerName: f.flagServerName,
+			TLSServerName: "",
 			Insecure:      f.flagInsecure,
 		}
 

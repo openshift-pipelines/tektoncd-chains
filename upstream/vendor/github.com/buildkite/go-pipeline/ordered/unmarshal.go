@@ -52,11 +52,6 @@ type Unmarshaler interface {
 //     yaml tags includes ",inline". Inline fields must themselves be a type
 //     that Unmarshal can unmarshal *Map[string, any] into - another struct or
 //     Map or map with string keys.
-//     Struct targets can also have `aliases` tags of the form
-//     `aliases:"apple,banana,citron"`
-//     If the field name or yaml tag key doesn't match, Unmarshal looks through
-//     the aliases list to see if any are present, and uses the value for the
-//     first.
 //   - S = []any (also recursively containing values with types from this list),
 //     which is recursively unmarshaled elementwise; D is *[]any or
 //     *[]somethingElse.
@@ -318,30 +313,17 @@ func (m *Map[K, V]) decodeInto(target any) error {
 		}
 
 		// Is there a value for this key?
-		value, has := tm.Get(key)
+		v, has := tm.Get(key)
 		if !has {
-			// Look for aliases, and choose the first with a value.
-			atag, _ := field.Tag.Lookup("aliases")
-			for _, alias := range strings.Split(atag, ",") {
-				value, has = tm.Get(alias)
-				if has {
-					key = alias
-					break
-				}
-			}
-		}
-		if !has {
-			// Couldn't find a value for the key or any aliases, so skip.
 			continue
 		}
 
-		// key matched a field, so it isn't inline.
+		// Now load v into this field.
 		outlineKeys[key] = struct{}{}
 
-		// Now load value into the field recursively.
 		// Get a pointer to the field. This works because target is a pointer.
 		ptrToField := innerValue.FieldByIndex(field.Index).Addr()
-		if err := Unmarshal(value, ptrToField.Interface()); err != nil {
+		if err := Unmarshal(v, ptrToField.Interface()); err != nil {
 			return err
 		}
 	}

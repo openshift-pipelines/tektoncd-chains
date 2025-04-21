@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"go/types"
 	"sync"
+
+	"golang.org/x/tools/internal/typeparams"
 )
 
 // A generic records information about a generic origin function,
@@ -57,7 +59,7 @@ func createInstance(fn *Function, targs []types.Type, cr *creator) *Function {
 		sig = obj.Type().(*types.Signature)
 	} else {
 		// function
-		instSig, err := types.Instantiate(prog.ctxt, fn.Signature, targs, false)
+		instSig, err := typeparams.Instantiate(prog.ctxt, fn.Signature, targs, false)
 		if err != nil {
 			panic(err)
 		}
@@ -75,10 +77,10 @@ func createInstance(fn *Function, targs []types.Type, cr *creator) *Function {
 		subst     *subster
 		build     buildFunc
 	)
-	if prog.mode&InstantiateGenerics != 0 && !prog.isParameterized(targs...) {
+	if prog.mode&InstantiateGenerics != 0 && !prog.parameterized.anyParameterized(targs) {
 		synthetic = fmt.Sprintf("instance of %s", fn.Name())
 		if fn.syntax != nil {
-			scope := obj.Origin().Scope()
+			scope := typeparams.OriginMethod(obj).Scope()
 			subst = makeSubster(prog.ctxt, scope, fn.typeparams, targs, false)
 			build = (*builder).buildFromSyntax
 		} else {
@@ -109,22 +111,4 @@ func createInstance(fn *Function, targs []types.Type, cr *creator) *Function {
 	}
 	cr.Add(instance)
 	return instance
-}
-
-// isParameterized reports whether any of the specified types contains
-// a free type parameter. It is safe to call concurrently.
-func (prog *Program) isParameterized(ts ...types.Type) bool {
-	prog.hasParamsMu.Lock()
-	defer prog.hasParamsMu.Unlock()
-
-	// TODO(adonovan): profile. If this operation is expensive,
-	// handle the most common but shallow cases such as T, pkg.T,
-	// *T without consulting the cache under the lock.
-
-	for _, t := range ts {
-		if prog.hasParams.Has(t) {
-			return true
-		}
-	}
-	return false
 }

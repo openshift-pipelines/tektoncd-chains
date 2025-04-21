@@ -37,8 +37,7 @@ func (f *Function) typeOf(e ast.Expr) types.Type {
 	panic(fmt.Sprintf("no type for %T @ %s", e, f.Prog.Fset.Position(e.Pos())))
 }
 
-// typ is the locally instantiated type of T.
-// If f is not an instantiation, then f.typ(T)==T.
+// typ is the locally instantiated type of T. T==typ(T) if f is not an instantiation.
 func (f *Function) typ(T types.Type) types.Type {
 	return f.subst.typ(T)
 }
@@ -46,7 +45,7 @@ func (f *Function) typ(T types.Type) types.Type {
 // If id is an Instance, returns info.Instances[id].Type.
 // Otherwise returns f.typeOf(id).
 func (f *Function) instanceType(id *ast.Ident) types.Type {
-	if t, ok := f.info.Instances[id]; ok {
+	if t, ok := typeparams.GetInstances(f.info)[id]; ok {
 		return t.Type
 	}
 	return f.typeOf(id)
@@ -107,7 +106,6 @@ type lblock struct {
 
 // labelledBlock returns the branch target associated with the
 // specified label, creating it if needed.
-// label should be a non-blank identifier (label.Name != "_").
 func (f *Function) labelledBlock(label *ast.Ident) *lblock {
 	obj := f.objectOf(label).(*types.Label)
 	lb := f.lblocks[obj]
@@ -535,7 +533,7 @@ func WriteFunction(buf *bytes.Buffer, f *Function) {
 	if len(f.Locals) > 0 {
 		buf.WriteString("# Locals:\n")
 		for i, l := range f.Locals {
-			fmt.Fprintf(buf, "# % 3d:\t%s %s\n", i, l.Name(), relType(typeparams.MustDeref(l.Type()), from))
+			fmt.Fprintf(buf, "# % 3d:\t%s %s\n", i, l.Name(), relType(mustDeref(l.Type()), from))
 		}
 	}
 	writeSignature(buf, from, f.Name(), f.Signature)
@@ -589,12 +587,6 @@ func WriteFunction(buf *bytes.Buffer, f *Function) {
 				buf.WriteString("<deleted>")
 			default:
 				buf.WriteString(instr.String())
-			}
-			// -mode=S: show line numbers
-			if f.Prog.mode&LogSource != 0 {
-				if pos := instr.Pos(); pos.IsValid() {
-					fmt.Fprintf(buf, " L%d", f.Prog.Fset.Position(pos).Line)
-				}
 			}
 			buf.WriteString("\n")
 		}
