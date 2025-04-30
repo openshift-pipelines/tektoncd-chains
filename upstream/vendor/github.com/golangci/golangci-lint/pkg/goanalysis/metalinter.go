@@ -31,11 +31,11 @@ func (ml MetaLinter) Run(_ context.Context, lintCtx *linter.Context) ([]result.I
 	return runAnalyzers(ml, lintCtx)
 }
 
-func (MetaLinter) Name() string {
+func (ml MetaLinter) Name() string {
 	return "goanalysis_metalinter"
 }
 
-func (MetaLinter) Desc() string {
+func (ml MetaLinter) Desc() string {
 	return ""
 }
 
@@ -57,11 +57,11 @@ func (ml MetaLinter) getAnalyzers() []*analysis.Analyzer {
 	return allAnalyzers
 }
 
-func (MetaLinter) getName() string {
+func (ml MetaLinter) getName() string {
 	return "metalinter"
 }
 
-func (MetaLinter) useOriginalPackages() bool {
+func (ml MetaLinter) useOriginalPackages() bool {
 	return false // `unused` can't be run by this metalinter
 }
 

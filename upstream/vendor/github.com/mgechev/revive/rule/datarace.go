@@ -16,7 +16,7 @@ func (*DataRaceRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
 	onFailure := func(failure lint.Failure) {
 		failures = append(failures, failure)
 	}
-	w := lintDataRaces{onFailure: onFailure, go122for: file.Pkg.IsAtLeastGo122()}
+	w := lintDataRaces{onFailure: onFailure}
 
 	ast.Walk(w, file.AST)
 
@@ -30,7 +30,6 @@ func (*DataRaceRule) Name() string {
 
 type lintDataRaces struct {
 	onFailure func(failure lint.Failure)
-	go122for  bool
 }
 
 func (w lintDataRaces) Visit(n ast.Node) ast.Visitor {
@@ -48,7 +47,7 @@ func (w lintDataRaces) Visit(n ast.Node) ast.Visitor {
 	if results != nil {
 		returnIDs = w.ExtractReturnIDs(results.List)
 	}
-	fl := &lintFunctionForDataRaces{onFailure: w.onFailure, returnIDs: returnIDs, rangeIDs: map[*ast.Object]struct{}{}, go122for: w.go122for}
+	fl := &lintFunctionForDataRaces{onFailure: w.onFailure, returnIDs: returnIDs, rangeIDs: map[*ast.Object]struct{}{}}
 	ast.Walk(fl, node.Body)
 
 	return nil
@@ -70,7 +69,6 @@ type lintFunctionForDataRaces struct {
 	onFailure func(failure lint.Failure)
 	returnIDs map[*ast.Object]struct{}
 	rangeIDs  map[*ast.Object]struct{}
-	go122for  bool
 }
 
 func (w lintFunctionForDataRaces) Visit(node ast.Node) ast.Visitor {
@@ -80,7 +78,7 @@ func (w lintFunctionForDataRaces) Visit(node ast.Node) ast.Visitor {
 			return nil
 		}
 
-		getIDs := func(exprs ...ast.Expr) []*ast.Ident {
+		getIds := func(exprs ...ast.Expr) []*ast.Ident {
 			r := []*ast.Ident{}
 			for _, expr := range exprs {
 				if id, ok := expr.(*ast.Ident); ok {
@@ -90,7 +88,7 @@ func (w lintFunctionForDataRaces) Visit(node ast.Node) ast.Visitor {
 			return r
 		}
 
-		ids := getIDs(n.Key, n.Value)
+		ids := getIds(n.Key, n.Value)
 		for _, id := range ids {
 			w.rangeIDs[id.Obj] = struct{}{}
 		}
@@ -120,7 +118,7 @@ func (w lintFunctionForDataRaces) Visit(node ast.Node) ast.Visitor {
 			_, isReturnID := w.returnIDs[id.Obj]
 
 			switch {
-			case isRangeID && !w.go122for:
+			case isRangeID:
 				w.onFailure(lint.Failure{
 					Confidence: 1,
 					Node:       id,

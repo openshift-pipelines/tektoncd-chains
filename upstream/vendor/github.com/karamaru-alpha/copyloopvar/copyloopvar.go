@@ -10,7 +10,7 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
-var checkAlias bool
+var ignoreAlias bool
 
 func NewAnalyzer() *analysis.Analyzer {
 	analyzer := &analysis.Analyzer{
@@ -21,15 +21,19 @@ func NewAnalyzer() *analysis.Analyzer {
 			inspect.Analyzer,
 		},
 	}
-	analyzer.Flags.BoolVar(&checkAlias, "check-alias", false, "check all assigning the loop variable to another variable")
+	analyzer.Flags.BoolVar(&ignoreAlias, "ignore-alias", false, "ignore aliasing of loop variables")
 	return analyzer
 }
 
 func run(pass *analysis.Pass) (any, error) {
-	pass.ResultOf[inspect.Analyzer].(*inspector.Inspector).Preorder([]ast.Node{
+	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+
+	nodeFilter := []ast.Node{
 		(*ast.RangeStmt)(nil),
 		(*ast.ForStmt)(nil),
-	}, func(n ast.Node) {
+	}
+
+	inspect.Preorder(nodeFilter, func(n ast.Node) {
 		switch node := n.(type) {
 		case *ast.RangeStmt:
 			checkRangeStmt(pass, node)
@@ -68,7 +72,7 @@ func checkRangeStmt(pass *analysis.Pass, rangeStmt *ast.RangeStmt) {
 			if right.Name != key.Name && (value == nil || right.Name != value.Name) {
 				continue
 			}
-			if !checkAlias {
+			if ignoreAlias {
 				left, ok := assignStmt.Lhs[i].(*ast.Ident)
 				if !ok {
 					continue
@@ -115,7 +119,7 @@ func checkForStmt(pass *analysis.Pass, forStmt *ast.ForStmt) {
 			if _, ok := initVarNameMap[right.Name]; !ok {
 				continue
 			}
-			if !checkAlias {
+			if ignoreAlias {
 				left, ok := assignStmt.Lhs[i].(*ast.Ident)
 				if !ok {
 					continue

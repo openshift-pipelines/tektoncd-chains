@@ -1,15 +1,12 @@
 package processors
 
 import (
-	"fmt"
 	"regexp"
-	"strings"
 
-	"github.com/golangci/golangci-lint/pkg/config"
 	"github.com/golangci/golangci-lint/pkg/result"
 )
 
-var _ Processor = (*Exclude)(nil)
+var _ Processor = Exclude{}
 
 type Exclude struct {
 	name string
@@ -17,22 +14,22 @@ type Exclude struct {
 	pattern *regexp.Regexp
 }
 
-func NewExclude(cfg *config.Issues) *Exclude {
+type ExcludeOptions struct {
+	Pattern       string
+	CaseSensitive bool
+}
+
+func NewExclude(opts ExcludeOptions) *Exclude {
 	p := &Exclude{name: "exclude"}
 
-	var pattern string
-	if len(cfg.ExcludePatterns) != 0 {
-		pattern = fmt.Sprintf("(%s)", strings.Join(cfg.ExcludePatterns, "|"))
-	}
-
 	prefix := caseInsensitivePrefix
-	if cfg.ExcludeCaseSensitive {
+	if opts.CaseSensitive {
 		p.name = "exclude-case-sensitive"
 		prefix = ""
 	}
 
-	if pattern != "" {
-		p.pattern = regexp.MustCompile(prefix + pattern)
+	if opts.Pattern != "" {
+		p.pattern = regexp.MustCompile(prefix + opts.Pattern)
 	}
 
 	return p
@@ -52,4 +49,4 @@ func (p Exclude) Process(issues []result.Issue) ([]result.Issue, error) {
 	}), nil
 }
 
-func (Exclude) Finish() {}
+func (p Exclude) Finish() {}

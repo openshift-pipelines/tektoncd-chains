@@ -421,7 +421,7 @@ import (
 `,
 	},
 	{
-		"comment-without-whitespace",
+		"comment-whithout-whitespace",
 
 		commonConfig,
 

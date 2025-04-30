@@ -1,19 +1,15 @@
 package config
 
 import (
-	"cmp"
-	"fmt"
 	"os"
-	"path/filepath"
-	"slices"
+	"regexp"
 	"strings"
 
 	hcversion "github.com/hashicorp/go-version"
-	"github.com/ldez/grignotin/gomod"
-	"golang.org/x/mod/modfile"
+	"github.com/ldez/gomoddirectives"
 )
 
-// Config encapsulates the config data specified in the golangci-lint YAML config file.
+// Config encapsulates the config data specified in the golangci-lint yaml config file.
 type Config struct {
 	cfgDir string // The directory containing the golangci-lint config file.
 
@@ -37,12 +33,12 @@ func (c *Config) GetConfigDir() string {
 
 func (c *Config) Validate() error {
 	validators := []func() error{
-		c.Run.Validate,
-		c.Output.Validate,
-		c.LintersSettings.Validate,
-		c.Linters.Validate,
 		c.Issues.Validate,
 		c.Severity.Validate,
+		c.LintersSettings.Validate,
+		c.Linters.Validate,
+		c.Output.Validate,
+		c.Run.Validate,
 	}
 
 	for _, v := range validators {
@@ -80,79 +76,35 @@ func IsGoGreaterThanOrEqual(current, limit string) bool {
 }
 
 func detectGoVersion() string {
-	goVersion := detectGoVersionFromGoMod()
-	if goVersion != "" {
-		return goVersion
-	}
+	file, _ := gomoddirectives.GetModuleFile()
 
-	return cmp.Or(os.Getenv("GOVERSION"), "1.17")
-}
-
-// detectGoVersionFromGoMod tries to get Go version from go.mod.
-// It returns `toolchain` version if present,
-// else it returns `go` version if present,
-// else it returns empty.
-func detectGoVersionFromGoMod() string {
-	modPath, err := gomod.GetGoModPath()
-	if err != nil {
-		modPath = detectGoModFallback()
-		if modPath == "" {
-			return ""
-		}
-	}
-
-	file, err := parseGoMod(modPath)
-	if err != nil {
-		return ""
-	}
-
-	// The toolchain exists only if 'toolchain' version > 'go' version.
-	// If 'toolchain' version <= 'go' version, `go mod tidy` will remove 'toolchain' version from go.mod.
-	if file.Toolchain != nil && file.Toolchain.Name != "" {
-		return strings.TrimPrefix(file.Toolchain.Name, "go")
-	}
-
-	if file.Go != nil && file.Go.Version != "" {
+	if file != nil && file.Go != nil && file.Go.Version != "" {
 		return file.Go.Version
 	}
 
-	return ""
-}
-
-func parseGoMod(goMod string) (*modfile.File, error) {
-	raw, err := os.ReadFile(filepath.Clean(goMod))
-	if err != nil {
-		return nil, fmt.Errorf("reading go.mod file: %w", err)
+	v := os.Getenv("GOVERSION")
+	if v != "" {
+		return v
 	}
 
-	return modfile.Parse("go.mod", raw, nil)
+	return "1.17"
 }
 
-func detectGoModFallback() string {
-	info, err := gomod.GetModuleInfo()
-	if err != nil {
+// Trims the Go version to keep only M.m.
+// Since Go 1.21 the version inside the go.mod can be a patched version (ex: 1.21.0).
+// The version can also include information which we want to remove (ex: 1.21alpha1)
+// https://go.dev/doc/toolchain#versions
+// This a problem with staticcheck and gocritic.
+func trimGoVersion(v string) string {
+	if v == "" {
 		return ""
 	}
 
-	wd, err := os.Getwd()
-	if err != nil {
-		return ""
+	exp := regexp.MustCompile(`(\d\.\d+)(?:\.\d+|[a-z]+\d)`)
+
+	if exp.MatchString(v) {
+		return exp.FindStringSubmatch(v)[1]
 	}
 
-	slices.SortFunc(info, func(a, b gomod.ModInfo) int {
-		return cmp.Compare(len(b.Path), len(a.Path))
-	})
-
-	goMod := info[0]
-	for _, m := range info {
-		if !strings.HasPrefix(wd, m.Dir) {
-			continue
-		}
-
-		goMod = m
-
-		break
-	}
-
-	return goMod.GoMod
+	return v
 }

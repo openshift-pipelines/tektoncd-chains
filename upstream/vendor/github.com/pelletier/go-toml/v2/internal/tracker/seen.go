@@ -57,11 +57,7 @@ type SeenTracker struct {
 	currentIdx int
 }
 
-var pool = sync.Pool{
-	New: func() interface{} {
-		return &SeenTracker{}
-	},
-}
+var pool sync.Pool
 
 func (s *SeenTracker) reset() {
 	// Always contains a root element at index 0.
@@ -335,6 +331,12 @@ func (s *SeenTracker) checkArray(node *unstable.Node) (first bool, err error) {
 }
 
 func (s *SeenTracker) checkInlineTable(node *unstable.Node) (first bool, err error) {
+	if pool.New == nil {
+		pool.New = func() interface{} {
+			return &SeenTracker{}
+		}
+	}
+
 	s = pool.Get().(*SeenTracker)
 	s.reset()
 

@@ -1,6 +1,6 @@
 package section
 
-// Code generated based on go1.23.0 X:boringcrypto,arenas. DO NOT EDIT.
+// Code generated based on go1.22.0 X:arenas. DO NOT EDIT.
 
 var standardPackages = map[string]struct{}{
 	"archive/tar":          {},
@@ -20,7 +20,6 @@ var standardPackages = map[string]struct{}{
 	"context":              {},
 	"crypto":               {},
 	"crypto/aes":           {},
-	"crypto/boring":        {},
 	"crypto/cipher":        {},
 	"crypto/des":           {},
 	"crypto/dsa":           {},
@@ -38,7 +37,6 @@ var standardPackages = map[string]struct{}{
 	"crypto/sha512":        {},
 	"crypto/subtle":        {},
 	"crypto/tls":           {},
-	"crypto/tls/fipsonly":  {},
 	"crypto/x509":          {},
 	"crypto/x509/pkix":     {},
 	"database/sql":         {},
@@ -100,7 +98,6 @@ var standardPackages = map[string]struct{}{
 	"io":                   {},
 	"io/fs":                {},
 	"io/ioutil":            {},
-	"iter":                 {},
 	"log":                  {},
 	"log/slog":             {},
 	"log/syslog":           {},
@@ -152,7 +149,6 @@ var standardPackages = map[string]struct{}{
 	"sort":                 {},
 	"strconv":              {},
 	"strings":              {},
-	"structs":              {},
 	"sync":                 {},
 	"sync/atomic":          {},
 	"syscall":              {},
@@ -170,6 +166,5 @@ var standardPackages = map[string]struct{}{
 	"unicode":              {},
 	"unicode/utf16":        {},
 	"unicode/utf8":         {},
-	"unique":               {},
 	"unsafe":               {},
 }

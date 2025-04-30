@@ -6,8 +6,6 @@ import (
 	"github.com/golangci/golangci-lint/pkg/result"
 )
 
-var _ Processor = (*IdentifierMarker)(nil)
-
 type replacePattern struct {
 	re   string
 	repl string
@@ -128,22 +126,16 @@ func NewIdentifierMarker() *IdentifierMarker {
 	}
 }
 
-func (IdentifierMarker) Name() string {
-	return "identifier_marker"
-}
-
-func (p IdentifierMarker) Process(issues []result.Issue) ([]result.Issue, error) {
+func (im IdentifierMarker) Process(issues []result.Issue) ([]result.Issue, error) {
 	return transformIssues(issues, func(issue *result.Issue) *result.Issue {
 		newIssue := *issue
-		newIssue.Text = p.markIdentifiers(newIssue.Text)
+		newIssue.Text = im.markIdentifiers(newIssue.Text)
 		return &newIssue
 	}), nil
 }
 
-func (IdentifierMarker) Finish() {}
-
-func (p IdentifierMarker) markIdentifiers(s string) string {
-	for _, rr := range p.replaceRegexps {
+func (im IdentifierMarker) markIdentifiers(s string) string {
+	for _, rr := range im.replaceRegexps {
 		rs := rr.re.ReplaceAllString(s, rr.repl)
 		if rs != s {
 			return rs
@@ -152,3 +144,8 @@ func (p IdentifierMarker) markIdentifiers(s string) string {
 
 	return s
 }
+
+func (im IdentifierMarker) Name() string {
+	return "identifier_marker"
+}
+func (im IdentifierMarker) Finish() {}

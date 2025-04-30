@@ -1,6 +1,8 @@
 package checkers
 
 import (
+	"go/ast"
+
 	"golang.org/x/tools/go/analysis"
 
 	"github.com/Antonboom/testifylint/internal/analysisutil"
@@ -47,9 +49,21 @@ func (checker NilCompare) Check(pass *analysis.Pass, call *CallMeta) *analysis.D
 	}
 
 	return newUseFunctionDiagnostic(checker.Name(), call, proposedFn,
-		analysis.TextEdit{
+		newSuggestedFuncReplacement(call, proposedFn, analysis.TextEdit{
 			Pos:     call.Args[0].Pos(),
 			End:     call.Args[1].End(),
 			NewText: analysisutil.NodeBytes(pass.Fset, survivingArg),
-		})
+		}),
+	)
+}
+
+func xorNil(first, second ast.Expr) (ast.Expr, bool) {
+	a, b := isNil(first), isNil(second)
+	if xor(a, b) {
+		if a {
+			return second, true
+		}
+		return first, true
+	}
+	return nil, false
 }

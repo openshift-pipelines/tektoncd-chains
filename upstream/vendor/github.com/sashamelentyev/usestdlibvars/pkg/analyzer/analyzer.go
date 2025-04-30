@@ -2,7 +2,6 @@ package analyzer
 
 import (
 	"flag"
-	"fmt"
 	"go/ast"
 	"go/token"
 	"strings"
@@ -64,8 +63,9 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.CallExpr)(nil),
 		(*ast.BasicLit)(nil),
 		(*ast.CompositeLit)(nil),
-		(*ast.BinaryExpr)(nil),
+		(*ast.IfStmt)(nil),
 		(*ast.SwitchStmt)(nil),
+		(*ast.ForStmt)(nil),
 	}
 
 	insp.Preorder(types, func(node ast.Node) {
@@ -116,30 +116,54 @@ func run(pass *analysis.Pass) (interface{}, error) {
 
 			typeElts(pass, x, typ, n.Elts)
 
-		case *ast.BinaryExpr:
-			switch n.Op {
-			case token.LSS, token.GTR, token.LEQ, token.GEQ, token.QUO, token.ADD, token.SUB, token.MUL:
-				return
-			default:
-			}
-
-			x, ok := n.X.(*ast.SelectorExpr)
+		case *ast.IfStmt:
+			cond, ok := n.Cond.(*ast.BinaryExpr)
 			if !ok {
 				return
 			}
 
-			y, ok := n.Y.(*ast.BasicLit)
+			switch cond.Op {
+			case token.LSS, token.GTR, token.LEQ, token.GEQ:
+				return
+			}
+
+			x, ok := cond.X.(*ast.SelectorExpr)
 			if !ok {
 				return
 			}
 
-			binaryExpr(pass, x, y)
+			y, ok := cond.Y.(*ast.BasicLit)
+			if !ok {
+				return
+			}
+
+			ifElseStmt(pass, x, y)
 
 		case *ast.SwitchStmt:
 			x, ok := n.Tag.(*ast.SelectorExpr)
 			if ok {
 				switchStmt(pass, x, n.Body.List)
+			} else {
+				switchStmtAsIfElseStmt(pass, n.Body.List)
 			}
+
+		case *ast.ForStmt:
+			cond, ok := n.Cond.(*ast.BinaryExpr)
+			if !ok {
+				return
+			}
+
+			x, ok := cond.X.(*ast.SelectorExpr)
+			if !ok {
+				return
+			}
+
+			y, ok := cond.Y.(*ast.BasicLit)
+			if !ok {
+				return
+			}
+
+			ifElseStmt(pass, x, y)
 		}
 	})
 
@@ -294,11 +318,8 @@ func typeElts(pass *analysis.Pass, x *ast.Ident, typ *ast.SelectorExpr, elts []a
 	}
 }
 
-// binaryExpr checks X and Y in binary expressions, including:
-//   - if-else-statement
-//   - for loops conditions
-//   - switch cases without a tag expression
-func binaryExpr(pass *analysis.Pass, x *ast.SelectorExpr, y *ast.BasicLit) {
+// ifElseStmt checks X and Y in if-else-statement.
+func ifElseStmt(pass *analysis.Pass, x *ast.SelectorExpr, y *ast.BasicLit) {
 	switch x.Sel.Name {
 	case "StatusCode":
 		if !lookupFlag(pass, HTTPStatusCodeFlag) {
@@ -355,6 +376,34 @@ func switchStmt(pass *analysis.Pass, x *ast.SelectorExpr, cases []ast.Stmt) {
 	}
 }
 
+func switchStmtAsIfElseStmt(pass *analysis.Pass, cases []ast.Stmt) {
+	for _, c := range cases {
+		caseClause, ok := c.(*ast.CaseClause)
+		if !ok {
+			continue
+		}
+
+		for _, expr := range caseClause.List {
+			binaryExpr, ok := expr.(*ast.BinaryExpr)
+			if !ok {
+				continue
+			}
+
+			x, ok := binaryExpr.X.(*ast.SelectorExpr)
+			if !ok {
+				continue
+			}
+
+			y, ok := binaryExpr.Y.(*ast.BasicLit)
+			if !ok {
+				continue
+			}
+
+			ifElseStmt(pass, x, y)
+		}
+	}
+}
+
 func lookupFlag(pass *analysis.Pass, name string) bool {
 	return pass.Analyzer.Flags.Lookup(name).Value.(flag.Getter).Get().(bool)
 }
@@ -365,7 +414,7 @@ func checkHTTPMethod(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	key := strings.ToUpper(currentVal)
 
 	if newVal, ok := mapping.HTTPMethod[key]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -373,7 +422,7 @@ func checkHTTPStatusCode(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.HTTPStatusCode[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -381,7 +430,7 @@ func checkTimeWeekday(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.TimeWeekday[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -389,7 +438,7 @@ func checkTimeMonth(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.TimeMonth[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -397,7 +446,7 @@ func checkTimeLayout(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.TimeLayout[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -405,7 +454,7 @@ func checkCryptoHash(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.CryptoHash[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -413,7 +462,7 @@ func checkRPCDefaultPath(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.RPCDefaultPath[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -423,7 +472,7 @@ func checkSQLIsolationLevel(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.SQLIsolationLevel[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -431,7 +480,7 @@ func checkTLSSignatureScheme(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.TLSSignatureScheme[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -439,7 +488,7 @@ func checkConstantKind(pass *analysis.Pass, basicLit *ast.BasicLit) {
 	currentVal := getBasicLitValue(basicLit)
 
 	if newVal, ok := mapping.ConstantKind[currentVal]; ok {
-		report(pass, basicLit, currentVal, newVal)
+		report(pass, basicLit.Pos(), currentVal, newVal)
 	}
 }
 
@@ -515,16 +564,6 @@ func getBasicLitValue(basicLit *ast.BasicLit) string {
 	return val.String()
 }
 
-func report(pass *analysis.Pass, rg analysis.Range, currentVal, newVal string) {
-	pass.Report(analysis.Diagnostic{
-		Pos:     rg.Pos(),
-		Message: fmt.Sprintf("%q can be replaced by %s", currentVal, newVal),
-		SuggestedFixes: []analysis.SuggestedFix{{
-			TextEdits: []analysis.TextEdit{{
-				Pos:     rg.Pos(),
-				End:     rg.End(),
-				NewText: []byte(newVal),
-			}},
-		}},
-	})
+func report(pass *analysis.Pass, pos token.Pos, currentVal, newVal string) {
+	pass.Reportf(pos, "%q can be replaced by %s", currentVal, newVal)
 }

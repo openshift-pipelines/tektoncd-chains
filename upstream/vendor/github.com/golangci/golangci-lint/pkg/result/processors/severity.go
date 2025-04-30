@@ -1,10 +1,8 @@
 package processors
 
 import (
-	"cmp"
 	"regexp"
 
-	"github.com/golangci/golangci-lint/pkg/config"
 	"github.com/golangci/golangci-lint/pkg/fsutils"
 	"github.com/golangci/golangci-lint/pkg/logutils"
 	"github.com/golangci/golangci-lint/pkg/result"
@@ -12,11 +10,22 @@ import (
 
 const severityFromLinter = "@linter"
 
-var _ Processor = (*Severity)(nil)
+var _ Processor = &Severity{}
 
 type severityRule struct {
 	baseRule
 	severity string
+}
+
+type SeverityRule struct {
+	BaseRule
+	Severity string
+}
+
+type SeverityOptions struct {
+	Default       string
+	Rules         []SeverityRule
+	CaseSensitive bool
 }
 
 type Severity struct {
@@ -30,26 +39,24 @@ type Severity struct {
 	rules           []severityRule
 }
 
-func NewSeverity(log logutils.Log, files *fsutils.Files, cfg *config.Severity) *Severity {
+func NewSeverity(log logutils.Log, files *fsutils.Files, opts SeverityOptions) *Severity {
 	p := &Severity{
 		name:            "severity-rules",
 		files:           files,
 		log:             log,
-		defaultSeverity: cfg.Default,
+		defaultSeverity: opts.Default,
 	}
 
 	prefix := caseInsensitivePrefix
-	if cfg.CaseSensitive {
+	if opts.CaseSensitive {
 		prefix = ""
 		p.name = "severity-rules-case-sensitive"
 	}
 
-	p.rules = createSeverityRules(cfg.Rules, prefix)
+	p.rules = createSeverityRules(opts.Rules, prefix)
 
 	return p
 }
-
-func (p *Severity) Name() string { return p.name }
 
 func (p *Severity) Process(issues []result.Issue) ([]result.Issue, error) {
 	if len(p.rules) == 0 && p.defaultSeverity == "" {
@@ -59,8 +66,6 @@ func (p *Severity) Process(issues []result.Issue) ([]result.Issue, error) {
 	return transformIssues(issues, p.transform), nil
 }
 
-func (*Severity) Finish() {}
-
 func (p *Severity) transform(issue *result.Issue) *result.Issue {
 	for _, rule := range p.rules {
 		if rule.match(issue, p.files, p.log) {
@@ -68,7 +73,10 @@ func (p *Severity) transform(issue *result.Issue) *result.Issue {
 				return issue
 			}
 
-			issue.Severity = cmp.Or(rule.severity, p.defaultSeverity)
+			issue.Severity = rule.severity
+			if issue.Severity == "" {
+				issue.Severity = p.defaultSeverity
+			}
 
 			return issue
 		}
@@ -81,7 +89,11 @@ func (p *Severity) transform(issue *result.Issue) *result.Issue {
 	return issue
 }
 
-func createSeverityRules(rules []config.SeverityRule, prefix string) []severityRule {
+func (p *Severity) Name() string { return p.name }
+
+func (*Severity) Finish() {}
+
+func createSeverityRules(rules []SeverityRule, prefix string) []severityRule {
 	parsedRules := make([]severityRule, 0, len(rules))
 
 	for _, rule := range rules {

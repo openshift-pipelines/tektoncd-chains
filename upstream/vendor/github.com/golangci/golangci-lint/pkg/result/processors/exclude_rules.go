@@ -3,16 +3,19 @@ package processors
 import (
 	"regexp"
 
-	"github.com/golangci/golangci-lint/pkg/config"
 	"github.com/golangci/golangci-lint/pkg/fsutils"
 	"github.com/golangci/golangci-lint/pkg/logutils"
 	"github.com/golangci/golangci-lint/pkg/result"
 )
 
-var _ Processor = (*ExcludeRules)(nil)
+var _ Processor = ExcludeRules{}
 
 type excludeRule struct {
 	baseRule
+}
+
+type ExcludeRule struct {
+	BaseRule
 }
 
 type ExcludeRules struct {
@@ -24,7 +27,12 @@ type ExcludeRules struct {
 	rules []excludeRule
 }
 
-func NewExcludeRules(log logutils.Log, files *fsutils.Files, cfg *config.Issues) *ExcludeRules {
+type ExcludeRulesOptions struct {
+	Rules         []ExcludeRule
+	CaseSensitive bool
+}
+
+func NewExcludeRules(log logutils.Log, files *fsutils.Files, opts ExcludeRulesOptions) *ExcludeRules {
 	p := &ExcludeRules{
 		name:  "exclude-rules",
 		files: files,
@@ -32,50 +40,36 @@ func NewExcludeRules(log logutils.Log, files *fsutils.Files, cfg *config.Issues)
 	}
 
 	prefix := caseInsensitivePrefix
-	if cfg.ExcludeCaseSensitive {
+	if opts.CaseSensitive {
 		prefix = ""
 		p.name = "exclude-rules-case-sensitive"
 	}
 
-	excludeRules := cfg.ExcludeRules
-
-	if cfg.UseDefaultExcludes {
-		for _, r := range config.GetExcludePatterns(cfg.IncludeDefaultExcludes) {
-			excludeRules = append(excludeRules, config.ExcludeRule{
-				BaseRule: config.BaseRule{
-					Text:    r.Pattern,
-					Linters: []string{r.Linter},
-				},
-			})
-		}
-	}
-
-	p.rules = createRules(excludeRules, prefix)
+	p.rules = createRules(opts.Rules, prefix)
 
 	return p
 }
-
-func (p ExcludeRules) Name() string { return p.name }
 
 func (p ExcludeRules) Process(issues []result.Issue) ([]result.Issue, error) {
 	if len(p.rules) == 0 {
 		return issues, nil
 	}
-
 	return filterIssues(issues, func(issue *result.Issue) bool {
 		for _, rule := range p.rules {
+			rule := rule
 			if rule.match(issue, p.files, p.log) {
 				return false
 			}
 		}
-
 		return true
 	}), nil
 }
 
+func (p ExcludeRules) Name() string { return p.name }
+
 func (ExcludeRules) Finish() {}
 
-func createRules(rules []config.ExcludeRule, prefix string) []excludeRule {
+func createRules(rules []ExcludeRule, prefix string) []excludeRule {
 	parsedRules := make([]excludeRule, 0, len(rules))
 
 	for _, rule := range rules {

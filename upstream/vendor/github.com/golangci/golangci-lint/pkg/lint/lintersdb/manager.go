@@ -162,6 +162,7 @@ func (m *Manager) build(enabledByDefaultLinters []*linter.Config) map[string]*li
 	// --presets can only add linters to default set
 	for _, p := range m.cfg.Linters.Presets {
 		for _, lc := range m.GetAllLinterConfigsForPreset(p) {
+			lc := lc
 			resultLintersSet[lc.Name()] = lc
 		}
 	}
@@ -203,30 +204,21 @@ func (m *Manager) build(enabledByDefaultLinters []*linter.Config) map[string]*li
 }
 
 func (m *Manager) combineGoAnalysisLinters(linters map[string]*linter.Config) {
-	mlConfig := &linter.Config{}
-
 	var goanalysisLinters []*goanalysis.Linter
-
+	goanalysisPresets := map[string]bool{}
 	for _, lc := range linters {
 		lnt, ok := lc.Linter.(*goanalysis.Linter)
 		if !ok {
 			continue
 		}
-
 		if lnt.LoadMode() == goanalysis.LoadModeWholeProgram {
 			// It's ineffective by CPU and memory to run whole-program and incremental analyzers at once.
 			continue
 		}
-
-		mlConfig.LoadMode |= lc.LoadMode
-
-		if lc.IsSlowLinter() {
-			mlConfig.ConsiderSlow()
-		}
-
-		mlConfig.InPresets = append(mlConfig.InPresets, lc.InPresets...)
-
 		goanalysisLinters = append(goanalysisLinters, lnt)
+		for _, p := range lc.InPresets {
+			goanalysisPresets[p] = true
+		}
 	}
 
 	if len(goanalysisLinters) <= 1 {
@@ -253,13 +245,22 @@ func (m *Manager) combineGoAnalysisLinters(linters map[string]*linter.Config) {
 		return a.Name() <= b.Name()
 	})
 
-	mlConfig.Linter = goanalysis.NewMetaLinter(goanalysisLinters)
+	ml := goanalysis.NewMetaLinter(goanalysisLinters)
 
-	sort.Strings(mlConfig.InPresets)
-	mlConfig.InPresets = slices.Compact(mlConfig.InPresets)
+	presets := maps.Keys(goanalysisPresets)
+	sort.Strings(presets)
 
-	linters[mlConfig.Linter.Name()] = mlConfig
+	mlConfig := &linter.Config{
+		Linter:           ml,
+		EnabledByDefault: false,
+		InPresets:        presets,
+		AlternativeNames: nil,
+		OriginalURL:      "",
+	}
 
+	mlConfig = mlConfig.WithLoadForGoAnalysis()
+
+	linters[ml.Name()] = mlConfig
 	m.debugf("Combined %d go/analysis linters into one metalinter", len(goanalysisLinters))
 }
 
@@ -302,10 +303,6 @@ func AllPresets() []string {
 func linterConfigsToMap(lcs []*linter.Config) map[string]*linter.Config {
 	ret := map[string]*linter.Config{}
 	for _, lc := range lcs {
-		if lc.IsDeprecated() && lc.Deprecation.Level > linter.DeprecationWarning {
-			continue
-		}
-
 		ret[lc.Name()] = lc
 	}
 

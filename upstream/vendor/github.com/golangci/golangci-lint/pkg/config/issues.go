@@ -14,92 +14,93 @@ var DefaultExcludePatterns = []ExcludePattern{
 		Pattern: "Error return value of .((os\\.)?std(out|err)\\..*|.*Close" +
 			"|.*Flush|os\\.Remove(All)?|.*print(f|ln)?|os\\.(Un)?Setenv). is not checked",
 		Linter: "errcheck",
-		Why:    "Almost all programs ignore errors on these functions and in most cases it's ok.",
+		Why:    "Almost all programs ignore errors on these functions and in most cases it's ok",
 	},
 	{
-		ID: "EXC0002", // TODO(ldez): should be remove in v2
+		ID: "EXC0002",
 		Pattern: "(comment on exported (method|function|type|const)|" +
 			"should have( a package)? comment|comment should be of the form)",
 		Linter: "golint",
-		Why:    "Annoying issue about not having a comment. The rare codebase has such comments.",
+		Why:    "Annoying issue about not having a comment. The rare codebase has such comments",
 	},
 	{
-		ID:      "EXC0003", // TODO(ldez): should be remove in v2
+		ID:      "EXC0003",
 		Pattern: "func name will be used as test\\.Test.* by other packages, and that stutters; consider calling this",
 		Linter:  "golint",
-		Why:     "False positive when tests are defined in package 'test'.",
+		Why:     "False positive when tests are defined in package 'test'",
 	},
 	{
 		ID:      "EXC0004",
 		Pattern: "(possible misuse of unsafe.Pointer|should have signature)",
 		Linter:  "govet",
-		Why:     "Common false positives.",
+		Why:     "Common false positives",
 	},
 	{
 		ID:      "EXC0005",
-		Pattern: "SA4011", // CheckScopedBreak
+		Pattern: "ineffective break statement. Did you mean to break out of the outer loop",
 		Linter:  "staticcheck",
-		Why:     "Developers tend to write in C-style with an explicit 'break' in a 'switch', so it's ok to ignore.",
+		Why:     "Developers tend to write in C-style with an explicit 'break' in a 'switch', so it's ok to ignore",
 	},
 	{
 		ID:      "EXC0006",
-		Pattern: "G103: Use of unsafe calls should be audited",
+		Pattern: "Use of unsafe calls should be audited",
 		Linter:  "gosec",
-		Why:     "Too many false-positives on 'unsafe' usage.",
+		Why:     "Too many false-positives on 'unsafe' usage",
 	},
 	{
 		ID:      "EXC0007",
-		Pattern: "G204: Subprocess launched with variable",
+		Pattern: "Subprocess launch(ed with variable|ing should be audited)",
 		Linter:  "gosec",
-		Why:     "Too many false-positives for parametrized shell calls.",
+		Why:     "Too many false-positives for parametrized shell calls",
 	},
 	{
 		ID:      "EXC0008",
-		Pattern: "G104", // Errors unhandled.
+		Pattern: "(G104)",
 		Linter:  "gosec",
-		Why:     "Duplicated errcheck checks.",
+		Why:     "Duplicated errcheck checks",
 	},
 	{
 		ID:      "EXC0009",
-		Pattern: "(G301|G302|G307): Expect (directory permissions to be 0750|file permissions to be 0600) or less",
+		Pattern: "(Expect directory permissions to be 0750 or less|Expect file permissions to be 0600 or less)",
 		Linter:  "gosec",
-		Why:     "Too many issues in popular repos.",
+		Why:     "Too many issues in popular repos",
 	},
 	{
 		ID:      "EXC0010",
-		Pattern: "G304: Potential file inclusion via variable",
+		Pattern: "Potential file inclusion via variable",
 		Linter:  "gosec",
-		Why:     "False positive is triggered by 'src, err := ioutil.ReadFile(filename)'.",
+		Why:     "False positive is triggered by 'src, err := ioutil.ReadFile(filename)'",
 	},
 	{
-		ID:      "EXC0011",
-		Pattern: "(ST1000|ST1020|ST1021|ST1022)", // CheckPackageComment, CheckExportedFunctionDocs, CheckExportedTypeDocs, CheckExportedVarDocs
-		Linter:  "stylecheck",
-		Why:     "Annoying issue about not having a comment. The rare codebase has such comments.",
+		ID: "EXC0011",
+		Pattern: "(comment on exported (method|function|type|const)|" +
+			"should have( a package)? comment|comment should be of the form)",
+		Linter: "stylecheck",
+		Why:    "Annoying issue about not having a comment. The rare codebase has such comments",
 	},
 	{
 		ID:      "EXC0012",
-		Pattern: `exported (.+) should have comment( \(or a comment on this block\))? or be unexported`, // rule: exported
+		Pattern: `exported (.+) should have comment( \(or a comment on this block\))? or be unexported`,
 		Linter:  "revive",
-		Why:     "Annoying issue about not having a comment. The rare codebase has such comments.",
+		Why:     "Annoying issue about not having a comment. The rare codebase has such comments",
 	},
 	{
 		ID:      "EXC0013",
-		Pattern: `package comment should be of the form "(.+)..."`, // rule: package-comments
+		Pattern: `package comment should be of the form "(.+)...`,
 		Linter:  "revive",
-		Why:     "Annoying issue about not having a comment. The rare codebase has such comments.",
+		Why:     "Annoying issue about not having a comment. The rare codebase has such comments",
 	},
 	{
 		ID:      "EXC0014",
-		Pattern: `comment on exported (.+) should be of the form "(.+)..."`, // rule: exported
+		Pattern: `comment on exported (.+) should be of the form "(.+)..."`,
 		Linter:  "revive",
-		Why:     "Annoying issue about not having a comment. The rare codebase has such comments.",
+		Why:     "Annoying issue about not having a comment. The rare codebase has such comments",
 	},
 	{
 		ID:      "EXC0015",
-		Pattern: `should have a package comment`, // rule: package-comments
+		Pattern: `should have a package comment`,
 		Linter:  "revive",
-		Why:     "Annoying issue about not having a comment. The rare codebase has such comments.",
+		Why:     "Annoying issue about not having a comment. The rare codebase has such comments",
 	},
 }
 
@@ -108,18 +109,15 @@ type Issues struct {
 	ExcludeCaseSensitive   bool          `mapstructure:"exclude-case-sensitive"`
 	ExcludePatterns        []string      `mapstructure:"exclude"`
 	ExcludeRules           []ExcludeRule `mapstructure:"exclude-rules"`
+	ExcludeGeneratedStrict bool          `mapstructure:"exclude-generated-strict"`
 	UseDefaultExcludes     bool          `mapstructure:"exclude-use-default"`
 
-	ExcludeGenerated string `mapstructure:"exclude-generated"`
+	ExcludeFiles          []string `mapstructure:"exclude-files"`
+	ExcludeDirs           []string `mapstructure:"exclude-dirs"`
+	UseDefaultExcludeDirs bool     `mapstructure:"exclude-dirs-use-default"`
 
-	ExcludeFiles []string `mapstructure:"exclude-files"`
-	ExcludeDirs  []string `mapstructure:"exclude-dirs"`
-
-	UseDefaultExcludeDirs bool `mapstructure:"exclude-dirs-use-default"`
-
-	MaxIssuesPerLinter int  `mapstructure:"max-issues-per-linter"`
-	MaxSameIssues      int  `mapstructure:"max-same-issues"`
-	UniqByLine         bool `mapstructure:"uniq-by-line"`
+	MaxIssuesPerLinter int `mapstructure:"max-issues-per-linter"`
+	MaxSameIssues      int `mapstructure:"max-same-issues"`
 
 	DiffFromRevision  string `mapstructure:"new-from-rev"`
 	DiffPatchFilePath string `mapstructure:"new-from-patch"`
@@ -127,8 +125,6 @@ type Issues struct {
 	Diff              bool   `mapstructure:"new"`
 
 	NeedFix bool `mapstructure:"fix"`
-
-	ExcludeGeneratedStrict *bool `mapstructure:"exclude-generated-strict"` // Deprecated: use ExcludeGenerated instead.
 }
 
 func (i *Issues) Validate() error {
