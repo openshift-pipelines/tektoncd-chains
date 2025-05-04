@@ -59,7 +59,7 @@ require (
 	cloud.google.com/go/iam v1.1.7 // indirect
 	cloud.google.com/go/kms v1.15.8 // indirect
 	cloud.google.com/go/longrunning v0.5.5 // indirect
-	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
+	contrib.go.opencensus.io/exporter/ocagent 7399e0f8ee5e // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.0 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/4meepo/tagalign v1.3.3 // indirect
