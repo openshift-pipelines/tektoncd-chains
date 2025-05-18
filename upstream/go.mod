@@ -226,7 +226,7 @@ require (
 	github.com/golangci/maligned v0.0.0-20180506175553-b1d89398deca // indirect
 	github.com/golangci/misspell v0.4.1 // indirect
 	github.com/golangci/revgrep v0.5.2 // indirect
-	github.com/golangci/unconvert v0.0.0-20180507085042-28b1c447d1f4 // indirect
+	github.com/golangci/unconvert a129a6e6413e // indirect
 	github.com/google/cel-go v0.18.1 // indirect
 	github.com/google/certificate-transparency-go v1.1.8 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
