@@ -10,7 +10,7 @@ require (
 	github.com/google/addlicense v1.1.1
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.3
-	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20240108195214-a0658aa1d0cc
+	github.com/google/go-containerregistry/pkg/authn/k8schain 4eb8c4d84ef0
 	github.com/google/go-licenses v1.6.0
 	github.com/grafeas/grafeas v0.2.3
 	github.com/hashicorp/go-multierror v1.1.1
