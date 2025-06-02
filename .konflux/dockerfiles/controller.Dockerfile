@@ -24,8 +24,8 @@ COPY --from=builder /tmp/controller /ko-app/controller
 COPY head ${KO_DATA_PATH}/HEAD
 
 LABEL \
-      com.redhat.component="openshift-pipelines-chains-controller-rhel8-container" \
-      name="openshift-pipelines/pipelines-chains-controller-rhel8" \
+      com.redhat.component="openshift-pipelines-chains-controller-rhel9-container" \
+      name="openshift-pipelines/pipelines-chains-controller-rhel9" \
       version=$VERSION \
       summary="Red Hat OpenShift Pipelines Chains Controller" \
       maintainer="pipelines-extcomm@redhat.com" \
