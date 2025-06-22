@@ -950,7 +950,7 @@ github.com/golangci/dupl/syntax/golang
 # github.com/golangci/go-printf-func-name v0.1.0
 ## explicit; go 1.22.0
 github.com/golangci/go-printf-func-name/pkg/analyzer
-# github.com/golangci/gofmt v0.0.0-20250106114630-d62b90e6713d
+# github.com/golangci/gofmt v0.0.0-20250413222143-f2e10e00591b
 ## explicit; go 1.22.0
 github.com/golangci/gofmt/gofmt
 # github.com/golangci/golangci-lint v1.64.8
