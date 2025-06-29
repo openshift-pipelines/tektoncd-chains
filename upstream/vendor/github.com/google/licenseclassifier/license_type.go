@@ -92,7 +92,7 @@ const (
 	CommonsClause               = "Commons-Clause"
 	CPAL10                      = "CPAL-1.0"
 	CPL10                       = "CPL-1.0"
-	eGenix                      = "eGenix"
+	EGenix                      = "eGenix"
 	EPL10                       = "EPL-1.0"
 	EPL20                       = "EPL-2.0"
 	EUPL10                      = "EUPL-1.0"
@@ -180,7 +180,7 @@ var (
 	// Licenses Categorized by Type
 
 	// restricted - Licenses in this category require mandatory source
-	// distribution if we ships a product that includes third-party code
+	// distribution if we ship a product that includes third-party code
 	// protected by such a license.
 	restrictedType = sets.NewStringSet(
 		BCL,
