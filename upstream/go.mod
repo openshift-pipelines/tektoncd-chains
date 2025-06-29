@@ -431,7 +431,7 @@ require (
 	go.step.sm/crypto v0.51.2 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20240314144324-c7f7c6466f7f // indirect
+	golang.org/x/exp/typeparams v0.0.0-20250620022241-b7579e27df2b // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
