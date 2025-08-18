@@ -153,8 +153,7 @@ func isLocalType(pass *analysis.Pass, typ types.Type) bool {
 		return isLocalType(pass, x.Elem())
 	case interface{ Obj() *types.TypeName }: // *Named or *TypeParam (aliases were removed already)
 		// names in package foo are local to foo_test too
-		return x.Obj().Pkg() != nil &&
-			strings.TrimSuffix(x.Obj().Pkg().Path(), "_test") == strings.TrimSuffix(pass.Pkg.Path(), "_test")
+		return strings.TrimSuffix(x.Obj().Pkg().Path(), "_test") == strings.TrimSuffix(pass.Pkg.Path(), "_test")
 	}
 	return false
 }

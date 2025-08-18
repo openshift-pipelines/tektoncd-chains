@@ -16,7 +16,6 @@ package reconciler
 import (
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	"knative.dev/pkg/controller"
-	"slices"
 )
 
 // PipelineRunInformerFilterFunc returns a filter function
@@ -28,8 +27,10 @@ func PipelineRunInformerFilterFunc(namespaces []string) func(obj interface{}) bo
 			return true
 		}
 		if pr, ok := obj.(*v1.PipelineRun); ok {
-			if slices.Contains(namespaces, pr.Namespace) {
-				return true
+			for _, ns := range namespaces {
+				if pr.Namespace == ns {
+					return true
+				}
 			}
 		}
 		return false
@@ -45,8 +46,10 @@ func TaskRunInformerFilterFunc(namespaces []string) func(obj interface{}) bool {
 			return true
 		}
 		if tr, ok := obj.(*v1.TaskRun); ok {
-			if slices.Contains(namespaces, tr.Namespace) {
-				return true
+			for _, ns := range namespaces {
+				if tr.Namespace == ns {
+					return true
+				}
 			}
 		}
 		return false
@@ -66,8 +69,10 @@ func TaskRunInformerFilterFuncWithOwnership(namespaces []string) func(obj interf
 			return true
 		}
 		if tr, ok := obj.(*v1.TaskRun); ok {
-			if slices.Contains(namespaces, tr.Namespace) {
-				return true
+			for _, ns := range namespaces {
+				if tr.Namespace == ns {
+					return true
+				}
 			}
 		}
 		return false

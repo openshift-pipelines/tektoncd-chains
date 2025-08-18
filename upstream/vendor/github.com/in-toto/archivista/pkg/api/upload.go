@@ -34,25 +34,25 @@ type UploadResponse struct {
 type StoreResponse = UploadResponse
 
 // Deprecated: Use Store instead. It will be removed in version >= v0.6.0
-func Upload(ctx context.Context, baseURL string, envelope dsse.Envelope, requestOptions ...RequestOption) (UploadResponse, error) {
-	return Store(ctx, baseURL, envelope, requestOptions...)
+func Upload(ctx context.Context, baseURL string, envelope dsse.Envelope) (UploadResponse, error) {
+	return Store(ctx, baseURL, envelope)
 }
 
-func Store(ctx context.Context, baseURL string, envelope dsse.Envelope, requestOptions ...RequestOption) (StoreResponse, error) {
+func Store(ctx context.Context, baseURL string, envelope dsse.Envelope) (StoreResponse, error) {
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	if err := enc.Encode(envelope); err != nil {
 		return StoreResponse{}, err
 	}
 
-	return StoreWithReader(ctx, baseURL, buf, requestOptions...)
+	return StoreWithReader(ctx, baseURL, buf)
 }
 
-func StoreWithReader(ctx context.Context, baseURL string, r io.Reader, requestOptions ...RequestOption) (StoreResponse, error) {
-	return StoreWithReaderWithHTTPClient(ctx, &http.Client{}, baseURL, r, requestOptions...)
+func StoreWithReader(ctx context.Context, baseURL string, r io.Reader) (StoreResponse, error) {
+	return StoreWithReaderWithHTTPClient(ctx, &http.Client{}, baseURL, r)
 }
 
-func StoreWithReaderWithHTTPClient(ctx context.Context, client *http.Client, baseURL string, r io.Reader, requestOptions ...RequestOption) (StoreResponse, error) {
+func StoreWithReaderWithHTTPClient(ctx context.Context, client *http.Client, baseURL string, r io.Reader) (StoreResponse, error) {
 	uploadPath, err := url.JoinPath(baseURL, "upload")
 	if err != nil {
 		return UploadResponse{}, err
@@ -63,7 +63,6 @@ func StoreWithReaderWithHTTPClient(ctx context.Context, client *http.Client, bas
 		return UploadResponse{}, err
 	}
 
-	req = applyRequestOptions(req, requestOptions...)
 	req.Header.Set("Content-Type", "application/json")
 	hc := &http.Client{}
 	resp, err := hc.Do(req)

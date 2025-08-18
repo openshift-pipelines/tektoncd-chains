@@ -21,6 +21,7 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"encoding/base64"
@@ -46,6 +47,8 @@ import (
 	"github.com/tektoncd/chains/pkg/chains/provenance"
 	"github.com/tektoncd/chains/pkg/test/tekton"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"github.com/tektoncd/pipeline/pkg/apis/resource/v1alpha1"
 	"google.golang.org/protobuf/encoding/protojson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
@@ -623,8 +626,8 @@ func TestRetryFailed(t *testing.T) {
 	}
 }
 
-var imageTaskSpec = v1.TaskSpec{
-	Steps: []v1.Step{
+var imageTaskSpec = v1beta1.TaskSpec{
+	Steps: []v1beta1.Step{
 		{
 			Image: "busybox",
 			Script: `set -e
@@ -642,26 +645,56 @@ cat <<EOF > $(outputs.resources.image.path)/index.json
 `,
 		},
 	},
+	Resources: &v1beta1.TaskResources{
+		Outputs: []v1beta1.TaskResource{
+			{
+				ResourceDeclaration: v1alpha1.ResourceDeclaration{
+					Name: "image",
+					Type: "image",
+				},
+			},
+		},
+	},
 }
 
-var imageTaskRun = v1.TaskRun{
+var imageTaskRun = v1beta1.TaskRun{
 	ObjectMeta: metav1.ObjectMeta{
 		GenerateName: "image-task",
 		Annotations:  map[string]string{chains.RekorAnnotation: "true"},
 	},
-	Spec: v1.TaskRunSpec{
+	Spec: v1beta1.TaskRunSpec{
 		TaskSpec: &imageTaskSpec,
+		Resources: &v1beta1.TaskRunResources{
+			Outputs: []v1beta1.TaskResourceBinding{{
+				PipelineResourceBinding: v1beta1.PipelineResourceBinding{
+					Name: "image",
+					ResourceSpec: &v1alpha1.PipelineResourceSpec{
+						Type: "image",
+						Params: []v1alpha1.ResourceParam{
+							{
+								Name:  "url",
+								Value: "gcr.io/foo/bar",
+							},
+						},
+					},
+				},
+			}},
+		},
 	},
 }
 
 func getTaskRunObject(ns string) objects.TektonObject {
-	o := objects.NewTaskRunObjectV1(imageTaskRun.DeepCopy())
+	trV1 := &v1.TaskRun{}
+	imageTaskRun.ConvertTo(context.Background(), trV1)
+	o := objects.NewTaskRunObjectV1(trV1)
 	o.Namespace = ns
 	return o
 }
 
 func getTaskRunObjectWithParams(ns string, params []v1.Param) objects.TektonObject {
-	o := objects.NewTaskRunObjectV1(imageTaskRun.DeepCopy())
+	trV1 := &v1.TaskRun{}
+	imageTaskRun.ConvertTo(context.Background(), trV1)
+	o := objects.NewTaskRunObjectV1(trV1)
 	o.Namespace = ns
 	o.Spec.Params = params
 	return o

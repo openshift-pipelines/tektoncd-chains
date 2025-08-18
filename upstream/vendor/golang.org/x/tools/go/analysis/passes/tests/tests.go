@@ -447,6 +447,18 @@ func checkExampleName(pass *analysis.Pass, fn *ast.FuncDecl) {
 	}
 }
 
+type tokenRange struct {
+	p, e token.Pos
+}
+
+func (r tokenRange) Pos() token.Pos {
+	return r.p
+}
+
+func (r tokenRange) End() token.Pos {
+	return r.e
+}
+
 func checkTest(pass *analysis.Pass, fn *ast.FuncDecl, prefix string) {
 	// Want functions with 0 results and 1 parameter.
 	if fn.Type.Results != nil && len(fn.Type.Results.List) > 0 ||
@@ -464,9 +476,8 @@ func checkTest(pass *analysis.Pass, fn *ast.FuncDecl, prefix string) {
 	if tparams := fn.Type.TypeParams; tparams != nil && len(tparams.List) > 0 {
 		// Note: cmd/go/internal/load also errors about TestXXX and BenchmarkXXX functions with type parameters.
 		// We have currently decided to also warn before compilation/package loading. This can help users in IDEs.
-		pass.ReportRangef(analysisinternal.Range(tparams.Opening, tparams.Closing),
-			"%s has type parameters: it will not be run by go test as a %sXXX function",
-			fn.Name.Name, prefix)
+		at := tokenRange{tparams.Opening, tparams.Closing}
+		pass.ReportRangef(at, "%s has type parameters: it will not be run by go test as a %sXXX function", fn.Name.Name, prefix)
 	}
 
 	if !isTestSuffix(fn.Name.Name[len(prefix):]) {
