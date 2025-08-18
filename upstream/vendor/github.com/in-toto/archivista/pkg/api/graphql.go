@@ -1,4 +1,4 @@
-// Copyright 2023-2024 The Archivista Contributors
+// Copyright 2023-2024 The Witness Contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,7 +76,11 @@ const SearchQuery = `query($algo: String!, $digest: String!) {
   }
 }`
 
-func GraphQlQuery[TRes any, TVars any](ctx context.Context, baseUrl, query string, vars TVars, requestOptions ...RequestOption) (TRes, error) {
+func GraphQlQuery[TRes any, TVars any](ctx context.Context, baseUrl, query string, vars TVars) (TRes, error) {
+	return GraphQlQueryWithHeaders[TRes, TVars](ctx, baseUrl, query, vars, nil)
+}
+
+func GraphQlQueryWithHeaders[TRes any, TVars any](ctx context.Context, baseUrl, query string, vars TVars, headers map[string]string) (TRes, error) {
 	var response TRes
 	queryUrl, err := url.JoinPath(baseUrl, "query")
 	if err != nil {
@@ -98,7 +102,10 @@ func GraphQlQuery[TRes any, TVars any](ctx context.Context, baseUrl, query strin
 		return response, err
 	}
 
-	req = applyRequestOptions(req, requestOptions...)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
 	req.Header.Set("Content-Type", "application/json")
 	hc := &http.Client{}
 	res, err := hc.Do(req)
@@ -127,15 +134,4 @@ func GraphQlQuery[TRes any, TVars any](ctx context.Context, baseUrl, query strin
 	}
 
 	return gqlRes.Data, nil
-}
-
-// Deprecated: Use GraphQlQuery with the WithHeaders RequestOption
-func GraphQlQueryWithHeaders[TRes any, TVars any](ctx context.Context, baseUrl, query string, vars TVars, headers map[string]string, requestOptions ...RequestOption) (TRes, error) {
-	h := http.Header{}
-	for k, v := range headers {
-		h.Set(k, v)
-	}
-
-	requestOptions = append(requestOptions, WithHeaders(h))
-	return GraphQlQuery[TRes](ctx, baseUrl, query, vars, requestOptions...)
 }
