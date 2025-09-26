@@ -143,7 +143,7 @@ require (
 	github.com/blizzy78/varnamelen v0.8.0 // indirect
 	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
 	github.com/bombsimon/wsl/v4 v4.5.0 // indirect
-	github.com/breml/bidichk v0.3.2 // indirect
+	github.com/breml/bidichk v0.3.3 // indirect
 	github.com/breml/errchkjson v0.4.0 // indirect
 	github.com/buildkite/agent/v3 v3.95.1 // indirect
 	github.com/buildkite/go-pipeline v0.13.3 // indirect
