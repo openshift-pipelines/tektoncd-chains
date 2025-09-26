@@ -3723,7 +3723,7 @@ mvdan.cc/gofumpt/internal/version
 # mvdan.cc/unparam v0.0.0-20240528143540-8a5130ca722f
 ## explicit; go 1.21
 mvdan.cc/unparam/check
-# sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8
+# sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730
 ## explicit; go 1.23
 sigs.k8s.io/json
 sigs.k8s.io/json/internal/golang/encoding/json
