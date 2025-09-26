@@ -55,7 +55,7 @@ require (
 	cloud.google.com/go/kms v1.15.8 // indirect
 	cloud.google.com/go/longrunning v0.5.5 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
-	contrib.go.opencensus.io/exporter/prometheus v0.4.0 // indirect
+	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/4meepo/tagalign v1.3.3 // indirect
 	github.com/Abirdcfly/dupword v0.0.13 // indirect
@@ -329,7 +329,7 @@ require (
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.51.1 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
-	github.com/prometheus/statsd_exporter v0.21.0 // indirect
+	github.com/prometheus/statsd_exporter v0.22.7 // indirect
 	github.com/quasilyte/go-ruleguard v0.4.0 // indirect
 	github.com/quasilyte/gogrep v0.5.0 // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20210819130434-b3f0c404a727 // indirect
