@@ -147,7 +147,7 @@ require (
 	github.com/breml/errchkjson v0.3.6 // indirect
 	github.com/buildkite/agent/v3 v3.81.0 // indirect
 	github.com/buildkite/go-pipeline v0.13.1 // indirect
-	github.com/buildkite/interpolate v0.1.3 // indirect
+	github.com/buildkite/interpolate v0.1.5 // indirect
 	github.com/buildkite/roko v1.2.0 // indirect
 	github.com/butuzov/ireturn v0.3.0 // indirect
 	github.com/butuzov/mirror v1.2.0 // indirect
