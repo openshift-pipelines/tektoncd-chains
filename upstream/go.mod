@@ -34,9 +34,9 @@ require (
 	github.com/tektoncd/plumbing v0.0.0-20230907180608-5625252a2de1
 	go.opencensus.io v0.24.0
 	go.uber.org/zap v1.27.0
-	gocloud.dev v0.40.0
-	gocloud.dev/docstore/mongodocstore v0.40.0
-	gocloud.dev/pubsub/kafkapubsub v0.40.0
+	gocloud.dev v0.43.0
+	gocloud.dev/docstore/mongodocstore v0.43.0
+	gocloud.dev/pubsub/kafkapubsub v0.43.0
 	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 	google.golang.org/grpc v1.67.1
