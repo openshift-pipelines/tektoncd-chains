@@ -40,7 +40,7 @@ require (
 	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 	google.golang.org/grpc v1.67.1
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.36.6
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
 	k8s.io/client-go v0.31.2
@@ -341,7 +341,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/polyfloyd/go-errorlint v1.6.0 // indirect
 	github.com/prometheus/client_golang v1.20.2 // indirect
-	github.com/prometheus/client_model v0.6.1 // indirect
+	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/prometheus/statsd_exporter v0.22.7 // indirect
