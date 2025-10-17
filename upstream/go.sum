@@ -80,8 +80,8 @@ cloud.google.com/go/storage v1.39.1 h1:MvraqHKhogCOTXTlct/9C3K3+Uy2jBmFYb3/Sp6dV
 cloud.google.com/go/storage v1.39.1/go.mod h1:xK6xZmxZmo+fyP7+DEF6FhNc24/JAe95OLyOHCXFH1o=
 code.gitea.io/sdk/gitea v0.16.0 h1:gAfssETO1Hv9QbE+/nhWu7EjoFQYKt6kPoyDytQgw00=
 code.gitea.io/sdk/gitea v0.16.0/go.mod h1:ndkDk99BnfiUCCYEUhpNzi0lpmApXlwRFqClBlOlEBg=
-contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d h1:LblfooH1lKOpp1hIhukktmSAxFkqMPFk9KR6iZ0MJNI=
-contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d/go.mod h1:IshRmMJBhDfFj5Y67nVhMYTTIze91RUeT73ipWKs/GY=
+contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20230502190836-7399e0f8ee5e h1:c6jN7NYEYoRQySA9O1wa2rIcaR/32CR5+aA3op69SV8=
+contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20230502190836-7399e0f8ee5e/go.mod h1:IshRmMJBhDfFj5Y67nVhMYTTIze91RUeT73ipWKs/GY=
 contrib.go.opencensus.io/exporter/prometheus v0.4.0 h1:0QfIkj9z/iVZgK31D9H9ohjjIDApI2GOPScCKwxedbs=
 contrib.go.opencensus.io/exporter/prometheus v0.4.0/go.mod h1:o7cosnyfuPVK0tB8q0QmaQNhGnptITnPQB+z1+qeFB0=
 cuelabs.dev/go/oci/ociregistry v0.0.0-20240314152124-224736b49f2e h1:GwCVItFUPxwdsEYnlUcJ6PJxOjTeFFCKOh6QWg4oAzQ=
