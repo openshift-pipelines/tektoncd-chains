@@ -827,8 +827,8 @@ github.com/golang/snappy
 ## explicit
 github.com/golangci/check/cmd/structcheck
 github.com/golangci/check/cmd/varcheck
-# github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a
-## explicit
+# github.com/golangci/dupl v0.0.0-20250308024227-f665c8d69b32
+## explicit; go 1.22.0
 github.com/golangci/dupl
 github.com/golangci/dupl/job
 github.com/golangci/dupl/printer
