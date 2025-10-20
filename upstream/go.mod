@@ -1,8 +1,8 @@
 module github.com/tektoncd/chains
 
-go 1.23.0
+go 1.23.4
 
-toolchain go1.24.1
+toolchain go1.24.6
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0
@@ -267,7 +267,7 @@ require (
 	github.com/jcmturner/gofork v1.7.6 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
+	github.com/jedisct1/go-minisign v0.0.0-20241212093149-d2f9f49435c7 // indirect
 	github.com/jellydator/ttlcache/v3 v3.2.0 // indirect
 	github.com/jgautheron/goconst v1.7.1 // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
