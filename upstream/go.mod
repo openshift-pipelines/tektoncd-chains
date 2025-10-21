@@ -16,7 +16,7 @@ require (
 	github.com/google/go-licenses v1.6.0
 	github.com/grafeas/grafeas v0.2.3
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/in-toto/attestation v1.1.1
+	github.com/in-toto/attestation v1.1.2
 	github.com/in-toto/in-toto-golang v0.9.1-0.20240317085821-8e2966059a09
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pkg/errors v0.9.1
@@ -40,7 +40,7 @@ require (
 	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f
 	google.golang.org/grpc v1.70.0
-	google.golang.org/protobuf v1.36.4
+	google.golang.org/protobuf v1.36.6
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
 	k8s.io/client-go v0.32.1
