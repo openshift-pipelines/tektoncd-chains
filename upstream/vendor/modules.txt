@@ -79,7 +79,7 @@ github.com/AliyunContainerService/ack-ram-tool/pkg/credentials/alibabacloudsdkgo
 # github.com/Antonboom/errname v0.1.12
 ## explicit; go 1.20
 github.com/Antonboom/errname/pkg/analyzer
-# github.com/Antonboom/nilnil v0.1.7
+# github.com/Antonboom/nilnil v0.1.9
 ## explicit; go 1.20
 github.com/Antonboom/nilnil/pkg/analyzer
 # github.com/Antonboom/testifylint v1.2.0
