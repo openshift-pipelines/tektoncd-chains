@@ -9,7 +9,7 @@ require (
 	cloud.google.com/go/storage v1.39.1
 	github.com/golangci/golangci-lint v1.55.2
 	github.com/google/addlicense v1.1.1
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.19.1
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230625233257-b8504803389b
 	github.com/google/go-licenses v1.6.0
@@ -189,7 +189,7 @@ require (
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
-	github.com/go-logfmt/logfmt v0.6.0 // indirect
+	github.com/go-logfmt/logfmt v0.6.1 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/analysis v0.23.0 // indirect
