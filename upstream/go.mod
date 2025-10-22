@@ -186,7 +186,7 @@ require (
 	github.com/firefart/nonamedreturns v1.0.4 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/ghostiam/protogetter v0.3.5 // indirect
-	github.com/go-chi/chi v4.1.2+incompatible // indirect
+	github.com/go-chi/chi v4.1.3 // indirect
 	github.com/go-critic/go-critic v0.11.2 // indirect
 	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
