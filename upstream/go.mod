@@ -402,7 +402,7 @@ require (
 	github.com/ykadowak/zerologlint v0.1.5 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240424034433-3c2c7870ae76 // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
-	gitlab.com/bosi/decorder v0.4.1 // indirect
+	gitlab.com/bosi/decorder v0.4.2 // indirect
 	go-simpler.org/musttag v0.9.0 // indirect
 	go-simpler.org/sloglint v0.5.0 // indirect
 	go.mongodb.org/mongo-driver v1.15.0 // indirect
