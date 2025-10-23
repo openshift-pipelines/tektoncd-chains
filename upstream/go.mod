@@ -29,7 +29,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.8.10
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.8.10
 	github.com/spiffe/go-spiffe/v2 v2.4.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/tektoncd/pipeline v0.65.0
 	github.com/tektoncd/plumbing v0.0.0-20230907180608-5625252a2de1
 	go.opencensus.io v0.24.0
@@ -40,7 +40,7 @@ require (
 	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20240904232852-e7e105dedf7e
 	google.golang.org/grpc v1.67.1
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.35.2
 	k8s.io/api v0.31.2
 	k8s.io/apimachinery v0.31.2
 	k8s.io/client-go v0.31.2
@@ -184,7 +184,8 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/envoyproxy/go-control-plane v0.13.0 // indirect
+	github.com/envoyproxy/go-control-plane/envoy v1.32.3 // indirect
+	github.com/envoyproxy/go-control-plane/ratelimit v0.1.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.1.0 // indirect
 	github.com/ettle/strcase v0.2.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
