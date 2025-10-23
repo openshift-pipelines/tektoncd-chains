@@ -1494,8 +1494,8 @@ github.com/klauspost/compress/zstd/internal/xxhash
 # github.com/kulti/thelper v0.6.3
 ## explicit; go 1.18
 github.com/kulti/thelper/pkg/analyzer
-# github.com/kunwardeep/paralleltest v1.0.10
-## explicit; go 1.17
+# github.com/kunwardeep/paralleltest v1.0.15
+## explicit; go 1.23.0
 github.com/kunwardeep/paralleltest/pkg/paralleltest
 # github.com/kylelemons/godebug v1.1.0
 ## explicit; go 1.11
