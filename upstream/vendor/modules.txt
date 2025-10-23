@@ -1271,8 +1271,8 @@ github.com/ldez/gomoddirectives
 # github.com/ldez/tagliatelle v0.5.0
 ## explicit; go 1.19
 github.com/ldez/tagliatelle
-# github.com/leonklingele/grouper v1.1.1
-## explicit; go 1.17
+# github.com/leonklingele/grouper v1.1.2
+## explicit; go 1.18
 github.com/leonklingele/grouper/pkg/analyzer
 github.com/leonklingele/grouper/pkg/analyzer/consts
 github.com/leonklingele/grouper/pkg/analyzer/globals
