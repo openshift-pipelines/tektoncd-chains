@@ -399,7 +399,7 @@ require (
 	github.com/ykadowak/zerologlint v0.1.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
-	gitlab.com/bosi/decorder v0.4.1 // indirect
+	gitlab.com/bosi/decorder v0.4.2 // indirect
 	go-simpler.org/sloglint v0.1.2 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
