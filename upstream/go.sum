@@ -334,8 +334,9 @@ github.com/blizzy78/varnamelen v0.8.0 h1:oqSblyuQvFsW1hbBHh1zfwrKe3kcSj0rnXkKzsQ
 github.com/blizzy78/varnamelen v0.8.0/go.mod h1:V9TzQZ4fLJ1DSrjVDfl89H7aMnTvKkApdHeyESmyR7k=
 github.com/bluekeyes/go-gitdiff v0.7.1 h1:graP4ElLRshr8ecu0UtqfNTCHrtSyZd3DABQm/DWesQ=
 github.com/bluekeyes/go-gitdiff v0.7.1/go.mod h1:QpfYYO1E0fTVHVZAZKiRjtSGY9823iCdvGXBcEzHGbM=
-github.com/bmatcuk/doublestar/v4 v4.0.2 h1:X0krlUVAVmtr2cRoTqR8aDMrDqnB36ht8wpWTiQ3jsA=
 github.com/bmatcuk/doublestar/v4 v4.0.2/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
+github.com/bmatcuk/doublestar/v4 v4.9.1 h1:X8jg9rRZmJd4yRy7ZeNDRnM+T3ZfHv15JiBJ/avrEXE=
+github.com/bmatcuk/doublestar/v4 v4.9.1/go.mod h1:xBQ8jztBU6kakFMg+8WGxn0c6z1fTSPVIjEY1Wr7jzc=
 github.com/bombsimon/wsl/v4 v4.5.0 h1:iZRsEvDdyhd2La0FVi5k6tYehpOR/R7qIUjmKk7N74A=
 github.com/bombsimon/wsl/v4 v4.5.0/go.mod h1:NOQ3aLF4nD7N5YPXMruR6ZXDOAqLoM0GEpLwTdvmOSc=
 github.com/breml/bidichk v0.3.2 h1:xV4flJ9V5xWTqxL+/PMFF6dtJPvZLPsyixAoPe8BGJs=
