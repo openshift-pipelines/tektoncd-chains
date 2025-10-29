@@ -1,15 +1,15 @@
 module github.com/tektoncd/chains
 
-go 1.23.0
+go 1.24.0
 
-toolchain go1.24.1
+toolchain go1.24.6
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	cloud.google.com/go/storage v1.39.1
 	github.com/golangci/golangci-lint v1.55.2
 	github.com/google/addlicense v1.1.1
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.19.1
 	github.com/google/go-containerregistry/pkg/authn/k8schain v0.0.0-20230625233257-b8504803389b
 	github.com/google/go-licenses v1.6.0
@@ -38,7 +38,7 @@ require (
 	gocloud.dev/pubsub/kafkapubsub v0.36.0
 	golang.org/x/crypto v0.35.0
 	google.golang.org/grpc v1.62.1
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.28.3
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.28.3
@@ -430,7 +430,7 @@ require (
 	google.golang.org/api v0.172.0 // indirect
 	google.golang.org/genproto v0.0.0-20240311173647-c811ad7063a7 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240311173647-c811ad7063a7 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
 	gopkg.in/go-jose/go-jose.v2 v2.6.3 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
