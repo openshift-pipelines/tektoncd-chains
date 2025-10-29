@@ -1,6 +1,8 @@
 module github.com/tektoncd/chains
 
-go 1.23.4
+go 1.24.0
+
+toolchain go1.24.6
 
 require (
 	cloud.google.com/go/compute/metadata v0.6.0
@@ -40,7 +42,7 @@ require (
 	golang.org/x/crypto v0.37.0
 	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	google.golang.org/grpc v1.71.1
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.32.2
 	k8s.io/apimachinery v0.32.4
 	k8s.io/client-go v0.32.2
@@ -450,7 +452,7 @@ require (
 	google.golang.org/api v0.229.0 // indirect
 	google.golang.org/genproto v0.0.0-20250324211829-b45e905df463 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250414145226-207652e42e2e // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
