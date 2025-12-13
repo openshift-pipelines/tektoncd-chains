@@ -8,7 +8,7 @@ import (
 	"github.com/mgechev/revive/lint"
 )
 
-// RedundantImportAlias warns on import aliases matching the imported package name.
+// RedundantImportAlias lints given else constructs.
 type RedundantImportAlias struct{}
 
 // Apply applies the rule to given file.
@@ -25,7 +25,7 @@ func (*RedundantImportAlias) Apply(file *lint.File, _ lint.Arguments) []lint.Fai
 				Confidence: 1,
 				Failure:    fmt.Sprintf("Import alias \"%s\" is redundant", imp.Name.Name),
 				Node:       imp,
-				Category:   lint.FailureCategoryImports,
+				Category:   "imports",
 			})
 		}
 	}

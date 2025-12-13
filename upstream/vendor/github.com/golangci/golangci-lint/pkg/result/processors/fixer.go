@@ -9,9 +9,10 @@ package processors
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"slices"
+
+	"golang.org/x/exp/maps"
 
 	"github.com/golangci/golangci-lint/internal/x/tools/diff"
 	"github.com/golangci/golangci-lint/pkg/config"
@@ -30,8 +31,6 @@ var _ Processor = (*Fixer)(nil)
 
 const filePerm = 0644
 
-// Fixer fixes reports if possible.
-// The reports that are not fixed are passed to the next processor.
 type Fixer struct {
 	cfg       *config.Config
 	log       logutils.Log
@@ -125,7 +124,7 @@ func (p Fixer) process(issues []result.Issue) ([]result.Issue, error) {
 	for path, linterToEdits := range editsByLinter {
 		excludedLinters := make(map[string]struct{})
 
-		linters := slices.Collect(maps.Keys(linterToEdits))
+		linters := maps.Keys(linterToEdits)
 
 		// Does any linter create conflicting edits?
 		for _, linter := range linters {

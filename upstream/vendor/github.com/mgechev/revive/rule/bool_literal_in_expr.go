@@ -53,40 +53,20 @@ func (w *lintBoolLiteral) Visit(node ast.Node) ast.Visitor {
 		isConstant := (n.Op == token.LAND && lexeme == "false") || (n.Op == token.LOR && lexeme == "true")
 
 		if isConstant {
-			w.addFailure(n, "Boolean expression seems to always evaluate to "+lexeme, lint.FailureCategoryLogic)
+			w.addFailure(n, "Boolean expression seems to always evaluate to "+lexeme, "logic")
 		} else {
-			w.addFailure(n, "omit Boolean literal in expression", lint.FailureCategoryStyle)
+			w.addFailure(n, "omit Boolean literal in expression", "style")
 		}
 	}
 
 	return w
 }
 
-func (w lintBoolLiteral) addFailure(node ast.Node, msg string, cat lint.FailureCategory) {
+func (w lintBoolLiteral) addFailure(node ast.Node, msg, cat string) {
 	w.onFailure(lint.Failure{
 		Confidence: 1,
 		Node:       node,
 		Category:   cat,
 		Failure:    msg,
 	})
-}
-
-// isBoolOp returns true if the given token corresponds to a bool operator.
-func isBoolOp(t token.Token) bool {
-	switch t {
-	case token.LAND, token.LOR, token.EQL, token.NEQ:
-		return true
-	}
-
-	return false
-}
-
-func isExprABooleanLit(n ast.Node) (lexeme string, ok bool) {
-	oper, ok := n.(*ast.Ident)
-
-	if !ok {
-		return "", false
-	}
-
-	return oper.Name, oper.Name == "true" || oper.Name == "false"
 }

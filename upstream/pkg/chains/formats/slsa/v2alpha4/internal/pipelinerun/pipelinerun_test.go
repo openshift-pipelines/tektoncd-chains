@@ -35,16 +35,12 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
 func TestByProducts(t *testing.T) {
 	resultValue := v1.ResultValue{Type: "string", StringVal: "result-value"}
 	pr := &v1.PipelineRun{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "pipelineRun-name",
-		},
 		Status: v1.PipelineRunStatus{
 			PipelineRunStatusFields: v1.PipelineRunStatusFields{
 				Results: []v1.PipelineRunResult{
@@ -63,7 +59,7 @@ func TestByProducts(t *testing.T) {
 	}
 	want := []*intoto.ResourceDescriptor{
 		{
-			Name:      "pipelineRunResults/pipelineRun-name/result-name",
+			Name:      "pipelineRunResults/result-name",
 			Content:   resultBytes,
 			MediaType: JSONMediaType,
 		},
@@ -151,19 +147,19 @@ func TestGenerateAttestation(t *testing.T) {
 			},
 			expectedByProducts: []*intoto.ResourceDescriptor{
 				{
-					Name:      "pipelineRunResults/pipelinerun-build/CHAINS-GIT_COMMIT",
+					Name:      "pipelineRunResults/CHAINS-GIT_COMMIT",
 					Content:   []uint8(`"abcd"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/CHAINS-GIT_URL",
+					Name:      "pipelineRunResults/CHAINS-GIT_URL",
 					Content:   []uint8(`"https://git.test.com"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/img-ARTIFACT_INPUTS",
+					Name:      "pipelineRunResults/img-ARTIFACT_INPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7","uri":"abc"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/img_no_uri-ARTIFACT_OUTPUTS",
+					Name:      "pipelineRunResults/img_no_uri-ARTIFACT_OUTPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7"}`),
 					MediaType: JSONMediaType,
 				},
@@ -255,39 +251,39 @@ func TestGenerateAttestation(t *testing.T) {
 			},
 			expectedByProducts: []*intoto.ResourceDescriptor{
 				{
-					Name:      "pipelineRunResults/pipelinerun-build/CHAINS-GIT_COMMIT",
+					Name:      "pipelineRunResults/CHAINS-GIT_COMMIT",
 					Content:   []uint8(`"abcd"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/CHAINS-GIT_URL",
+					Name:      "pipelineRunResults/CHAINS-GIT_URL",
 					Content:   []uint8(`"https://git.test.com"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/img-ARTIFACT_INPUTS",
+					Name:      "pipelineRunResults/img-ARTIFACT_INPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7","uri":"abc"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/img_no_uri-ARTIFACT_OUTPUTS",
+					Name:      "pipelineRunResults/img_no_uri-ARTIFACT_OUTPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "taskRunResults/git-clone/some-uri_DIGEST",
+					Name:      "taskRunResults/some-uri_DIGEST",
 					Content:   []uint8(`"sha256:d4b63d3e24d6eef04a6dc0795cf8a73470688803d97c52cffa3c8d4efd3397b6"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "taskRunResults/git-clone/some-uri",
+					Name:      "taskRunResults/some-uri",
 					Content:   []uint8(`"pkg:deb/debian/curl@7.50.3-1"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "stepResults/git-clone/step1_result1-ARTIFACT_INPUTS",
+					Name:      "stepResults/step1_result1-ARTIFACT_INPUTS",
 					Content:   []uint8(`{"digest":"sha1:7f2f46e1b97df36b2b82d1b1d87c81b8b3d21601","uri":"https://github.com/tektoncd/pipeline"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "stepResults/taskrun-build/step1_result1",
+					Name:      "stepResults/step1_result1",
 					Content:   []uint8(`"result-value"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "stepResults/taskrun-build/step1_result1-ARTIFACT_OUTPUTS",
+					Name:      "stepResults/step1_result1-ARTIFACT_OUTPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7","uri":"gcr.io/my/image/fromstep2"}`),
 					MediaType: JSONMediaType,
 				},
@@ -392,35 +388,35 @@ func TestGenerateAttestation(t *testing.T) {
 			},
 			expectedByProducts: []*intoto.ResourceDescriptor{
 				{
-					Name:      "pipelineRunResults/pipelinerun-build/CHAINS-GIT_COMMIT",
+					Name:      "pipelineRunResults/CHAINS-GIT_COMMIT",
 					Content:   []uint8(`"abcd"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/CHAINS-GIT_URL",
+					Name:      "pipelineRunResults/CHAINS-GIT_URL",
 					Content:   []uint8(`"https://git.test.com"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/img-ARTIFACT_INPUTS",
+					Name:      "pipelineRunResults/img-ARTIFACT_INPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7","uri":"abc"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "pipelineRunResults/pipelinerun-build/img_no_uri-ARTIFACT_OUTPUTS",
+					Name:      "pipelineRunResults/img_no_uri-ARTIFACT_OUTPUTS",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "taskRunResults/git-clone/some-uri_DIGEST",
+					Name:      "taskRunResults/some-uri_DIGEST",
 					Content:   []uint8(`"sha256:d4b63d3e24d6eef04a6dc0795cf8a73470688803d97c52cffa3c8d4efd3397b6"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "taskRunResults/git-clone/some-uri",
+					Name:      "taskRunResults/some-uri",
 					Content:   []uint8(`"pkg:deb/debian/curl@7.50.3-1"`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "stepResults/git-clone/step1_result1-ARTIFACT_INPUTS",
+					Name:      "stepResults/step1_result1-ARTIFACT_INPUTS",
 					Content:   []uint8(`{"digest":"sha1:7f2f46e1b97df36b2b82d1b1d87c81b8b3d21601","uri":"https://github.com/tektoncd/pipeline"}`),
 					MediaType: JSONMediaType,
 				}, {
-					Name:      "stepResults/taskrun-build/step1_result1",
+					Name:      "stepResults/step1_result1",
 					Content:   []uint8(`"result-value"`),
 					MediaType: JSONMediaType,
 				},
@@ -479,14 +475,14 @@ func TestGenerateAttestation(t *testing.T) {
 }
 
 func createPro(prPath string, trPaths ...string) *objects.PipelineRunObjectV1 {
-	pr, err := objectloader.PipelineRunV1FromFile(prPath)
+	pr, err := objectloader.PipelineRunFromFile(prPath)
 	if err != nil {
 		panic(err)
 	}
 	p := objects.NewPipelineRunObjectV1(pr)
 
 	for _, trPath := range trPaths {
-		tr, err := objectloader.TaskRunV1FromFile(trPath)
+		tr, err := objectloader.TaskRunFromFile(trPath)
 		if err != nil {
 			panic(err)
 		}

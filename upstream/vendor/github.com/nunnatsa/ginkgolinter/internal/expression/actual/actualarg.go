@@ -8,7 +8,6 @@ import (
 	"golang.org/x/tools/go/analysis"
 
 	"github.com/nunnatsa/ginkgolinter/internal/expression/value"
-	"github.com/nunnatsa/ginkgolinter/internal/ginkgoinfo"
 	"github.com/nunnatsa/ginkgolinter/internal/gomegahandler"
 	"github.com/nunnatsa/ginkgolinter/internal/gomegainfo"
 	"github.com/nunnatsa/ginkgolinter/internal/reverseassertion"
@@ -99,7 +98,7 @@ func getActualArg(origActualExpr *ast.CallExpr, actualExprClone *ast.CallExpr, a
 	argExprClone = actualExprClone.Args[funcOffset]
 
 	if gomegainfo.IsAsyncActualMethod(actualMethodName) {
-		if ginkgoinfo.IsGinkgoContext(pass.TypesInfo.TypeOf(origArgExpr)) {
+		if pass.TypesInfo.TypeOf(origArgExpr).String() == "context.Context" {
 			funcOffset++
 			if len(origActualExpr.Args) <= funcOffset {
 				return nil, nil, 0, false

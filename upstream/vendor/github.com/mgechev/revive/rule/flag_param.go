@@ -7,42 +7,19 @@ import (
 	"github.com/mgechev/revive/lint"
 )
 
-// FlagParamRule warns on boolean parameters that create a control coupling.
+// FlagParamRule lints given else constructs.
 type FlagParamRule struct{}
 
 // Apply applies the rule to given file.
 func (*FlagParamRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
 	var failures []lint.Failure
+
 	onFailure := func(failure lint.Failure) {
 		failures = append(failures, failure)
 	}
 
-	for _, decl := range file.AST.Decls {
-		fd, ok := decl.(*ast.FuncDecl)
-		isFuncWithNonEmptyBody := ok && fd.Body != nil
-		if !isFuncWithNonEmptyBody {
-			continue
-		}
-
-		boolParams := map[string]struct{}{}
-		for _, param := range fd.Type.Params.List {
-			if !isIdent(param.Type, "bool") {
-				continue
-			}
-
-			for _, paramIdent := range param.Names {
-				boolParams[paramIdent.Name] = struct{}{}
-			}
-		}
-
-		if len(boolParams) == 0 {
-			continue
-		}
-
-		cv := conditionVisitor{boolParams, fd, onFailure}
-		ast.Walk(cv, fd.Body)
-	}
-
+	w := lintFlagParamRule{onFailure: onFailure}
+	ast.Walk(w, file.AST)
 	return failures
 }
 
@@ -51,10 +28,43 @@ func (*FlagParamRule) Name() string {
 	return "flag-parameter"
 }
 
-type conditionVisitor struct {
-	idents    map[string]struct{}
-	fd        *ast.FuncDecl
+type lintFlagParamRule struct {
 	onFailure func(lint.Failure)
+}
+
+func (w lintFlagParamRule) Visit(node ast.Node) ast.Visitor {
+	fd, ok := node.(*ast.FuncDecl)
+	if !ok {
+		return w
+	}
+
+	if fd.Body == nil {
+		return nil // skip whole function declaration
+	}
+
+	for _, p := range fd.Type.Params.List {
+		t := p.Type
+
+		id, ok := t.(*ast.Ident)
+		if !ok {
+			continue
+		}
+
+		if id.Name != "bool" {
+			continue
+		}
+
+		cv := conditionVisitor{p.Names, fd, w}
+		ast.Walk(cv, fd.Body)
+	}
+
+	return w
+}
+
+type conditionVisitor struct {
+	ids    []*ast.Ident
+	fd     *ast.FuncDecl
+	linter lintFlagParamRule
 }
 
 func (w conditionVisitor) Visit(node ast.Node) ast.Visitor {
@@ -63,30 +73,31 @@ func (w conditionVisitor) Visit(node ast.Node) ast.Visitor {
 		return w
 	}
 
-	findUsesOfIdents := func(n ast.Node) bool {
+	fselect := func(n ast.Node) bool {
 		ident, ok := n.(*ast.Ident)
 		if !ok {
 			return false
 		}
 
-		_, ok = w.idents[ident.Name]
-		if !ok {
-			return false
+		for _, id := range w.ids {
+			if ident.Name == id.Name {
+				return true
+			}
 		}
 
-		return w.idents[ident.Name] == struct{}{}
+		return false
 	}
 
-	uses := pick(ifStmt.Cond, findUsesOfIdents)
+	uses := pick(ifStmt.Cond, fselect)
 
 	if len(uses) < 1 {
 		return w
 	}
 
-	w.onFailure(lint.Failure{
+	w.linter.onFailure(lint.Failure{
 		Confidence: 1,
 		Node:       w.fd.Type.Params,
-		Category:   lint.FailureCategoryBadPractice,
+		Category:   "bad practice",
 		Failure:    fmt.Sprintf("parameter '%s' seems to be a control flag, avoid control coupling", uses[0]),
 	})
 
