@@ -92,23 +92,23 @@ func ExponentialSubsecond(initial time.Duration) (Strategy, string) {
 	}, exponentialStrategy
 }
 
-type RetrierOpt func(*Retrier)
+type retrierOpt func(*Retrier)
 
 // WithMaxAttempts sets the maximum number of retries that a retrier will attempt
-func WithMaxAttempts(maxAttempts int) RetrierOpt {
+func WithMaxAttempts(maxAttempts int) retrierOpt {
 	return func(r *Retrier) {
 		r.maxAttempts = maxAttempts
 	}
 }
 
-func WithRand(rand *rand.Rand) RetrierOpt {
+func WithRand(rand *rand.Rand) retrierOpt {
 	return func(r *Retrier) {
 		r.rand = rand
 	}
 }
 
 // WithStrategy sets the retry strategy that the retrier will use to determine how long to wait between retries
-func WithStrategy(strategy Strategy, strategyType string) RetrierOpt {
+func WithStrategy(strategy Strategy, strategyType string) retrierOpt {
 	return func(r *Retrier) {
 		r.strategyType = strategyType
 		r.intervalCalculator = strategy
@@ -119,7 +119,7 @@ func WithStrategy(strategy Strategy, strategyType string) RetrierOpt {
 // The idea here is to avoid thundering herds - retries that are in parallel will happen at slightly different times when
 // jitter is enabled, whereas if jitter is disabled, all the retries might happen at the same time, causing further load
 // on the system that we're tryung to do something with
-func WithJitter() RetrierOpt {
+func WithJitter() retrierOpt {
 	return func(r *Retrier) {
 		r.jitter = true
 		r.jitterRange = jitterRange{min: 0, max: defaultJitterInterval}
@@ -131,7 +131,7 @@ func WithJitter() RetrierOpt {
 // to the interval calculated by the retry strategy. The jitter will be recalculated for each retry. Both min and max may
 // be negative, but min must be less than max. min and max may both be zero, which is equivalent to disabling jitter.
 // If a negative jitter causes a negative interval, the interval will be clamped to zero.
-func WithJitterRange(min, max time.Duration) RetrierOpt {
+func WithJitterRange(min, max time.Duration) retrierOpt {
 	if min >= max {
 		panic("min must be less than max")
 	}
@@ -147,7 +147,7 @@ func WithJitterRange(min, max time.Duration) RetrierOpt {
 
 // TryForever causes the retrier to to never give up retrying, until either the operation succeeds, or the operation
 // calls retrier.Break()
-func TryForever() RetrierOpt {
+func TryForever() retrierOpt {
 	return func(r *Retrier) {
 		r.forever = true
 	}
@@ -155,7 +155,7 @@ func TryForever() RetrierOpt {
 
 // WithSleepFunc sets the function that the retrier uses to sleep between successive attempts
 // Only really useful for testing
-func WithSleepFunc(f func(time.Duration)) RetrierOpt {
+func WithSleepFunc(f func(time.Duration)) retrierOpt {
 	return func(r *Retrier) {
 		r.sleepFunc = f
 	}
@@ -163,7 +163,7 @@ func WithSleepFunc(f func(time.Duration)) RetrierOpt {
 
 // NewRetrier creates a new instance of the Retrier struct. Pass in retrierOpt functions to customise the behaviour of
 // the retrier
-func NewRetrier(opts ...RetrierOpt) *Retrier {
+func NewRetrier(opts ...retrierOpt) *Retrier {
 	r := &Retrier{
 		rand: defaultRandom,
 	}

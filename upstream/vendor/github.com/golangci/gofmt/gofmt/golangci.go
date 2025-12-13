@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/rogpeppe/go-internal/diff"
+	"github.com/golangci/gofmt/gofmt/internal/diff"
 )
 
 type Options struct {
@@ -27,13 +27,13 @@ type RewriteRule struct {
 }
 
 // Run runs gofmt.
-// Deprecated: use [Source] instead.
+// Deprecated: use RunRewrite instead.
 func Run(filename string, needSimplify bool) ([]byte, error) {
 	return RunRewrite(filename, needSimplify, nil)
 }
 
 // RunRewrite runs gofmt.
-// Deprecated: use [Source] instead.
+// empty string `rewrite` will be ignored.
 func RunRewrite(filename string, needSimplify bool, rewriteRules []RewriteRule) ([]byte, error) {
 	src, err := os.ReadFile(filename)
 	if err != nil {
@@ -78,8 +78,6 @@ func RunRewrite(filename string, needSimplify bool, rewriteRules []RewriteRule) 
 	return diff.Diff(oldName, src, newName, res), nil
 }
 
-// Source formats the code like gofmt.
-// Empty string `rewrite` will be ignored.
 func Source(filename string, src []byte, opts Options) ([]byte, error) {
 	fset := token.NewFileSet()
 

@@ -63,9 +63,6 @@ linters-settings:
     settings:
       hugeParam:
         sizeThreshold: 100
-  nolintlint:
-    require-specific: true
-    require-explanation: true
 
 issues:
   exclude-use-default: false
