@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -29,8 +28,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag/conv"
+	"github.com/go-openapi/swag"
 
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/rekor/pkg/log"
@@ -85,73 +85,13 @@ func (v V001Entry) IndexKeys() ([]string, error) {
 	return result, nil
 }
 
-// DecodeEntry performs direct decode into the provided output pointer
-// without mutating the receiver on error.
-func DecodeEntry(input any, output *models.HashedrekordV001Schema) error {
-	if output == nil {
-		return fmt.Errorf("nil output *models.HashedrekordV001Schema")
-	}
-	var m models.HashedrekordV001Schema
-	// Single type-switch with map fast path
-	switch data := input.(type) {
-	case map[string]any:
-		mm := data
-		if sigRaw, ok := mm["signature"].(map[string]any); ok {
-			m.Signature = &models.HashedrekordV001SchemaSignature{}
-			if c, ok := sigRaw["content"].(string); ok && c != "" {
-				outb := make([]byte, base64.StdEncoding.DecodedLen(len(c)))
-				n, err := base64.StdEncoding.Decode(outb, []byte(c))
-				if err != nil {
-					return fmt.Errorf("failed parsing base64 data for signature content: %w", err)
-				}
-				m.Signature.Content = outb[:n]
-			}
-			if pkRaw, ok := sigRaw["publicKey"].(map[string]any); ok {
-				m.Signature.PublicKey = &models.HashedrekordV001SchemaSignaturePublicKey{}
-				if c, ok := pkRaw["content"].(string); ok && c != "" {
-					outb := make([]byte, base64.StdEncoding.DecodedLen(len(c)))
-					n, err := base64.StdEncoding.Decode(outb, []byte(c))
-					if err != nil {
-						return fmt.Errorf("failed parsing base64 data for public key content: %w", err)
-					}
-					m.Signature.PublicKey.Content = outb[:n]
-				}
-			}
-		}
-		if dataRaw, ok := mm["data"].(map[string]any); ok {
-			if hRaw, ok := dataRaw["hash"].(map[string]any); ok {
-				m.Data = &models.HashedrekordV001SchemaData{Hash: &models.HashedrekordV001SchemaDataHash{}}
-				if alg, ok := hRaw["algorithm"].(string); ok {
-					m.Data.Hash.Algorithm = &alg
-				}
-				if val, ok := hRaw["value"].(string); ok {
-					m.Data.Hash.Value = &val
-				}
-			}
-		}
-		*output = m
-		return nil
-	case *models.HashedrekordV001Schema:
-		if data == nil {
-			return fmt.Errorf("nil *models.HashedrekordV001Schema")
-		}
-		*output = *data
-		return nil
-	case models.HashedrekordV001Schema:
-		*output = data
-		return nil
-	default:
-		return fmt.Errorf("unsupported input type %T for DecodeEntry", input)
-	}
-}
-
 func (v *V001Entry) Unmarshal(pe models.ProposedEntry) error {
 	rekord, ok := pe.(*models.Hashedrekord)
 	if !ok {
 		return errors.New("cannot unmarshal non Rekord v0.0.1 type")
 	}
 
-	if err := DecodeEntry(rekord.Spec, &v.HashedRekordObj); err != nil {
+	if err := types.DecodeEntry(rekord.Spec, &v.HashedRekordObj); err != nil {
 		return err
 	}
 
@@ -194,7 +134,7 @@ func (v *V001Entry) Canonicalize(_ context.Context) ([]byte, error) {
 	v.HashedRekordObj = canonicalEntry
 	// wrap in valid object with kind and apiVersion set
 	rekordObj := models.Hashedrekord{}
-	rekordObj.APIVersion = conv.Pointer(APIVERSION)
+	rekordObj.APIVersion = swag.String(APIVERSION)
 	rekordObj.Spec = &canonicalEntry
 
 	return json.Marshal(&rekordObj)
@@ -230,23 +170,17 @@ func (v *V001Entry) validate() (pki.Signature, pki.PublicKey, error) {
 	if hash == nil {
 		return nil, nil, &types.InputValidationError{Err: errors.New("missing hash")}
 	}
+	if !govalidator.IsHash(swag.StringValue(hash.Value), swag.StringValue(hash.Algorithm)) {
+		return nil, nil, &types.InputValidationError{Err: errors.New("invalid value for hash")}
+	}
 
 	var alg crypto.Hash
-	switch conv.Value(hash.Algorithm) {
+	switch swag.StringValue(hash.Algorithm) {
 	case models.HashedrekordV001SchemaDataHashAlgorithmSha384:
-		if len(*hash.Value) != crypto.SHA384.Size()*2 {
-			return nil, nil, &types.InputValidationError{Err: errors.New("invalid value for hash")}
-		}
 		alg = crypto.SHA384
 	case models.HashedrekordV001SchemaDataHashAlgorithmSha512:
-		if len(*hash.Value) != crypto.SHA512.Size()*2 {
-			return nil, nil, &types.InputValidationError{Err: errors.New("invalid value for hash")}
-		}
 		alg = crypto.SHA512
 	default:
-		if len(*hash.Value) != crypto.SHA256.Size()*2 {
-			return nil, nil, &types.InputValidationError{Err: errors.New("invalid value for hash")}
-		}
 		alg = crypto.SHA256
 	}
 
@@ -316,15 +250,15 @@ func (v V001Entry) CreateFromArtifactProperties(_ context.Context, props types.A
 	hashAlgorithm, hashValue := util.UnprefixSHA(props.ArtifactHash)
 	re.HashedRekordObj.Signature.PublicKey.Content = strfmt.Base64(publicKeyBytes[0])
 	re.HashedRekordObj.Data.Hash = &models.HashedrekordV001SchemaDataHash{
-		Algorithm: conv.Pointer(getDataHashAlgorithm(hashAlgorithm)),
-		Value:     conv.Pointer(hashValue),
+		Algorithm: swag.String(getDataHashAlgorithm(hashAlgorithm)),
+		Value:     swag.String(hashValue),
 	}
 
 	if _, _, err := re.validate(); err != nil {
 		return nil, err
 	}
 
-	returnVal.APIVersion = conv.Pointer(re.APIVersion())
+	returnVal.APIVersion = swag.String(re.APIVersion())
 	returnVal.Spec = re.HashedRekordObj
 
 	return &returnVal, nil

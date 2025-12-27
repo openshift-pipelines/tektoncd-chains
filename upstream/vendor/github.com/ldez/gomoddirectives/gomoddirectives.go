@@ -2,7 +2,6 @@
 package gomoddirectives
 
 import (
-	"context"
 	"fmt"
 	"go/token"
 	"regexp"
@@ -62,7 +61,7 @@ type Options struct {
 
 // AnalyzePass analyzes a pass.
 func AnalyzePass(pass *analysis.Pass, opts Options) ([]Result, error) {
-	info, err := gomod.GetModuleInfo(context.Background())
+	info, err := gomod.GetModuleInfo()
 	if err != nil {
 		return nil, fmt.Errorf("get information about modules: %w", err)
 	}
