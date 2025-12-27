@@ -59,16 +59,15 @@ func (o *URLOpener) OpenCollectionURL(ctx context.Context, u *url.URL) (*docstor
 		return nil, fmt.Errorf("open collection %v: empty collection name", u)
 	}
 	keyName := u.Path
-	if strings.HasPrefix(keyName, "/") {
-		keyName = keyName[1:]
-	}
+	keyName = strings.TrimPrefix(keyName, "/")
 	if keyName == "" || strings.ContainsRune(keyName, '/') {
 		return nil, fmt.Errorf("open collection %v: invalid key name %q (must be non-empty and have no slashes)", u, keyName)
 	}
 
 	options := &Options{
-		RevisionField: q.Get("revision_field"),
-		Filename:      q.Get("filename"),
+		RevisionField:           q.Get("revision_field"),
+		Filename:                q.Get("filename"),
+		AllowNestedSliceQueries: q.Get("allow_nested_slice_queries") == "true",
 		onClose: func() {
 			o.mu.Lock()
 			delete(o.collections, collName)
@@ -77,6 +76,7 @@ func (o *URLOpener) OpenCollectionURL(ctx context.Context, u *url.URL) (*docstor
 	}
 	q.Del("revision_field")
 	q.Del("filename")
+	q.Del("allow_nested_slice_queries")
 	for param := range q {
 		return nil, fmt.Errorf("open collection %v: invalid query parameter %q", u, param)
 	}

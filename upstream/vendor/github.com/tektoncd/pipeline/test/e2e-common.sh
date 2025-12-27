@@ -31,8 +31,6 @@ function install_pipeline_crd() {
   verify_pipeline_installation
   verify_resolvers_installation
   verify_log_access_enabled
-
-  export SYSTEM_NAMESPACE=tekton-pipelines
 }
 
 # Install the Tekton pipeline crd based on the release number
@@ -155,7 +153,7 @@ function uninstall_pipeline_crd_version() {
 }
 
 function delete_tekton_resources() {
-  for res in tasks clustertasks pipelines taskruns pipelineruns; do
+  for res in tasks pipelines taskruns pipelineruns; do
     echo ">> Deleting ${res}"
     kubectl delete --ignore-not-found=true ${res}.tekton.dev --all
   done

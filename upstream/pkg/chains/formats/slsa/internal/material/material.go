@@ -22,14 +22,11 @@ import (
 	"strings"
 
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
-	"github.com/tektoncd/chains/internal/backport"
 	"github.com/tektoncd/chains/pkg/artifacts"
 	"github.com/tektoncd/chains/pkg/chains/formats/slsa/attest"
 	"github.com/tektoncd/chains/pkg/chains/formats/slsa/internal/artifact"
 	"github.com/tektoncd/chains/pkg/chains/formats/slsa/internal/slsaconfig"
 	"github.com/tektoncd/chains/pkg/chains/objects"
-	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"knative.dev/pkg/logging"
 )
 
@@ -58,12 +55,6 @@ func TaskMaterials(ctx context.Context, tro *objects.TaskRunObjectV1) ([]common.
 
 	mats = artifact.AppendMaterials(mats, FromTaskParamsAndResults(ctx, tro)...)
 
-	// convert to v1beta1 and add any task resources
-	trV1Beta1 := &v1beta1.TaskRun{} //nolint:staticcheck
-	if err := trV1Beta1.ConvertFrom(ctx, tro.GetObject().(*v1.TaskRun)); err == nil {
-		mats = artifact.AppendMaterials(mats, FromTaskResources(ctx, trV1Beta1)...)
-	}
-
 	return mats, nil
 }
 
@@ -81,33 +72,37 @@ func PipelineMaterials(ctx context.Context, pro *objects.PipelineRunObjectV1, sl
 	if pSpec != nil {
 		pipelineTasks := append(pSpec.Tasks, pSpec.Finally...)
 		for _, t := range pipelineTasks {
-			tr := pro.GetTaskRunFromTask(t.Name)
-			// Ignore Tasks that did not execute during the PipelineRun.
-			if tr == nil || tr.Status.CompletionTime == nil {
-				logger.Infof("taskrun status not found for task %s", t.Name)
+			taskRuns := pro.GetTaskRunsFromTask(t.Name)
+			if len(taskRuns) == 0 {
+				logger.Infof("no taskruns found for task %s", t.Name)
 				continue
 			}
-
-			stepMaterials, err := FromStepImages(tr)
-			if err != nil {
-				return mats, err
-			}
-			mats = artifact.AppendMaterials(mats, stepMaterials...)
-
-			// add sidecar images
-			sidecarMaterials, err := FromSidecarImages(tr)
-			if err != nil {
-				return nil, err
-			}
-			mats = artifact.AppendMaterials(mats, sidecarMaterials...)
-
-			// add remote task configsource information in materials
-			if tr.Status.Provenance != nil && tr.Status.Provenance.RefSource != nil {
-				m := common.ProvenanceMaterial{
-					URI:    tr.Status.Provenance.RefSource.URI,
-					Digest: tr.Status.Provenance.RefSource.Digest,
+			for _, tr := range taskRuns {
+				// Ignore Tasks that did not execute during the PipelineRun.
+				if tr == nil || tr.Status.CompletionTime == nil {
+					logger.Infof("taskrun status not found for task %s", t.Name)
+					continue
 				}
-				mats = artifact.AppendMaterials(mats, m)
+				stepMaterials, err := FromStepImages(tr)
+				if err != nil {
+					return mats, err
+				}
+				mats = artifact.AppendMaterials(mats, stepMaterials...)
+				// add sidecar images
+				sidecarMaterials, err := FromSidecarImages(tr)
+				if err != nil {
+					return nil, err
+				}
+				mats = artifact.AppendMaterials(mats, sidecarMaterials...)
+
+				// add remote task configsource information in materials
+				if tr.Status.Provenance != nil && tr.Status.Provenance.RefSource != nil {
+					m := common.ProvenanceMaterial{
+						URI:    tr.Status.Provenance.RefSource.URI,
+						Digest: tr.Status.Provenance.RefSource.Digest,
+					}
+					mats = artifact.AppendMaterials(mats, m)
+				}
 			}
 		}
 	}
@@ -162,48 +157,6 @@ func fromImageID(imageID string) (common.ProvenanceMaterial, error) {
 	return m, nil
 }
 
-// FromTaskResourcesToMaterials gets materials from task resources.
-func FromTaskResources(ctx context.Context, tr *v1beta1.TaskRun) []common.ProvenanceMaterial { //nolint:staticcheck
-	mats := []common.ProvenanceMaterial{}
-	if tr.Spec.Resources != nil { //nolint:all //incompatible with pipelines v0.45
-		// check for a Git PipelineResource
-		for _, input := range tr.Spec.Resources.Inputs { //nolint:all //incompatible with pipelines v0.45
-			if input.ResourceSpec == nil || input.ResourceSpec.Type != backport.PipelineResourceTypeGit { //nolint:all //incompatible with pipelines v0.45
-				continue
-			}
-
-			m := common.ProvenanceMaterial{
-				Digest: common.DigestSet{},
-			}
-
-			for _, rr := range tr.Status.ResourcesResult {
-				if rr.ResourceName != input.Name {
-					continue
-				}
-				if rr.Key == "url" {
-					m.URI = attest.SPDXGit(rr.Value, "")
-				} else if rr.Key == "commit" {
-					m.Digest["sha1"] = rr.Value
-				}
-			}
-
-			var url string
-			var revision string
-			for _, param := range input.ResourceSpec.Params {
-				if param.Name == "url" {
-					url = param.Value
-				}
-				if param.Name == "revision" {
-					revision = param.Value
-				}
-			}
-			m.URI = attest.SPDXGit(url, revision)
-			mats = artifact.AppendMaterials(mats, m)
-		}
-	}
-	return mats
-}
-
 // FromTaskParamsAndResults scans over the taskrun, taskspec params and taskrun results
 // and looks for unstructured type hinted names matching CHAINS-GIT_COMMIT and CHAINS-GIT_URL
 // to extract the commit and url value for input artifact materials.
@@ -255,16 +208,44 @@ func FromTaskParamsAndResults(ctx context.Context, tro *objects.TaskRunObjectV1)
 		})
 	}
 
-	sms := artifacts.RetrieveMaterialsFromStructuredResults(ctx, tro, artifacts.ArtifactsInputsResultName)
+	sms := artifacts.RetrieveMaterialsFromStructuredResults(ctx, tro.GetResults())
 	mats = artifact.AppendMaterials(mats, sms...)
 
 	return mats
 }
 
+// FromStepActionsResults extracts type hinted results from StepActions associated with the TaskRun and adds the url and digest to materials.
+func FromStepActionsResults(ctx context.Context, tro *objects.TaskRunObjectV1) (mats []common.ProvenanceMaterial) {
+	for _, s := range tro.Status.Steps {
+		var sCommit, sURL string
+		for _, r := range s.Results {
+			if r.Name == attest.CommitParam {
+				sCommit = r.Value.StringVal
+				continue
+			}
+
+			if r.Name == attest.URLParam {
+				sURL = r.Value.StringVal
+			}
+		}
+
+		sURL = attest.SPDXGit(sURL, "")
+		if sCommit != "" && sURL != "" {
+			mats = artifact.AppendMaterials(mats, common.ProvenanceMaterial{
+				URI:    sURL,
+				Digest: map[string]string{"sha1": sCommit},
+			})
+		}
+	}
+	sms := artifacts.RetrieveMaterialsFromStructuredResults(ctx, tro.GetStepResults())
+	mats = artifact.AppendMaterials(mats, sms...)
+	return
+}
+
 // FromPipelineParamsAndResults extracts type hinted params and results and adds the url and digest to materials.
 func FromPipelineParamsAndResults(ctx context.Context, pro *objects.PipelineRunObjectV1, slsaconfig *slsaconfig.SlsaConfig) []common.ProvenanceMaterial {
 	mats := []common.ProvenanceMaterial{}
-	sms := artifacts.RetrieveMaterialsFromStructuredResults(ctx, pro, artifacts.ArtifactsInputsResultName)
+	sms := artifacts.RetrieveMaterialsFromStructuredResults(ctx, pro.GetResults())
 	mats = artifact.AppendMaterials(mats, sms...)
 
 	var commit, url string
@@ -276,14 +257,20 @@ func FromPipelineParamsAndResults(ctx context.Context, pro *objects.PipelineRunO
 			logger := logging.FromContext(ctx)
 			pipelineTasks := append(pSpec.Tasks, pSpec.Finally...)
 			for _, t := range pipelineTasks {
-				tr := pro.GetTaskRunFromTask(t.Name)
-				// Ignore Tasks that did not execute during the PipelineRun.
-				if tr == nil || tr.Status.CompletionTime == nil {
-					logger.Infof("taskrun is not found or not completed for the task %s", t.Name)
+				taskRuns := pro.GetTaskRunsFromTask(t.Name)
+				if len(taskRuns) == 0 {
+					logger.Infof("no taskruns found for task %s", t.Name)
 					continue
 				}
-				materialsFromTasks := FromTaskParamsAndResults(ctx, tr)
-				mats = artifact.AppendMaterials(mats, materialsFromTasks...)
+				for _, tr := range taskRuns {
+					// Ignore Tasks that did not execute during the PipelineRun.
+					if tr == nil || tr.Status.CompletionTime == nil {
+						logger.Infof("taskrun is not found or not completed for the task %s", t.Name)
+						continue
+					}
+					materialsFromTasks := FromTaskParamsAndResults(ctx, tr)
+					mats = artifact.AppendMaterials(mats, materialsFromTasks...)
+				}
 			}
 		}
 
