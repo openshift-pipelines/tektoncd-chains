@@ -17,8 +17,9 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
-	"github.com/in-toto/in-toto-golang/in_toto"
+	intoto "github.com/in-toto/attestation/go/v1"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/chains/signing"
 	"github.com/tektoncd/chains/pkg/chains/storage/api"
@@ -30,6 +31,8 @@ import (
 )
 
 const (
+	// ChainsAnnotationPrefix is the prefix for all Chains annotations
+	ChainsAnnotationPrefix    = "chains.tekton.dev/"
 	StorageBackendTekton      = "tekton"
 	PayloadAnnotationFormat   = "chains.tekton.dev/payload-%s"
 	SignatureAnnotationFormat = "chains.tekton.dev/signature-%s"
@@ -59,7 +62,7 @@ func (b *Backend) StorePayload(ctx context.Context, obj objects.TektonObject, ra
 		client: b.pipelineclientset,
 		key:    opts.ShortKey,
 	}
-	if _, err := store.Store(ctx, &api.StoreRequest[objects.TektonObject, *in_toto.Statement]{
+	if _, err := store.Store(ctx, &api.StoreRequest[objects.TektonObject, *intoto.Statement]{
 		Object:   obj,
 		Artifact: obj,
 		// We don't actually use payload - we store the raw bundle values directly.
@@ -89,7 +92,7 @@ func (b *Backend) retrieveAnnotationValue(ctx context.Context, obj objects.Tekto
 	var annotationValue string
 	annotations, err := obj.GetLatestAnnotations(ctx, b.pipelineclientset)
 	if err != nil {
-		return "", fmt.Errorf("error retrieving the annotation value for the key %q: %s", annotationKey, err)
+		return "", fmt.Errorf("error retrieving the annotation value for the key %q: %w", annotationKey, err)
 	}
 	val, ok := annotations[annotationKey]
 
@@ -99,7 +102,7 @@ func (b *Backend) retrieveAnnotationValue(ctx context.Context, obj objects.Tekto
 		if decode {
 			decodedAnnotation, err := base64.StdEncoding.DecodeString(val)
 			if err != nil {
-				return "", fmt.Errorf("error decoding the annotation value for the key %q: %s", annotationKey, err)
+				return "", fmt.Errorf("error decoding the annotation value for the key %q: %w", annotationKey, err)
 			}
 			annotationValue = string(decodedAnnotation)
 		} else {
@@ -110,7 +113,7 @@ func (b *Backend) retrieveAnnotationValue(ctx context.Context, obj objects.Tekto
 	return annotationValue, nil
 }
 
-// RetrieveSignature retrieve the signature stored in the taskrun.
+// RetrieveSignatures retrieve the signature stored in the taskrun.
 func (b *Backend) RetrieveSignatures(ctx context.Context, obj objects.TektonObject, opts config.StorageOpts) (map[string][]string, error) {
 	logger := logging.FromContext(ctx)
 	logger.Infof("Retrieving signature on %s/%s/%s", obj.GetGVK(), obj.GetNamespace(), obj.GetName())
@@ -124,7 +127,7 @@ func (b *Backend) RetrieveSignatures(ctx context.Context, obj objects.TektonObje
 	return m, nil
 }
 
-// RetrievePayload retrieve the payload stored in the taskrun.
+// RetrievePayloads retrieve the payload stored in the taskrun.
 func (b *Backend) RetrievePayloads(ctx context.Context, obj objects.TektonObject, opts config.StorageOpts) (map[string]string, error) {
 	logger := logging.FromContext(ctx)
 	logger.Infof("Retrieving payload on %s/%s/%s", obj.GetGVK(), obj.GetNamespace(), obj.GetName())
@@ -153,11 +156,11 @@ type Storer struct {
 }
 
 var (
-	_ api.Storer[objects.TektonObject, *in_toto.Statement] = &Storer{}
+	_ api.Storer[objects.TektonObject, *intoto.Statement] = &Storer{}
 )
 
 // Store stores the statement in the TaskRun metadata as an annotation.
-func (s *Storer) Store(ctx context.Context, req *api.StoreRequest[objects.TektonObject, *in_toto.Statement]) (*api.StoreResponse, error) {
+func (s *Storer) Store(ctx context.Context, req *api.StoreRequest[objects.TektonObject, *intoto.Statement]) (*api.StoreResponse, error) {
 	logger := logging.FromContext(ctx)
 
 	obj := req.Object
@@ -168,13 +171,28 @@ func (s *Storer) Store(ctx context.Context, req *api.StoreRequest[objects.Tekton
 	if key == "" {
 		key = string(obj.GetUID())
 	}
-	patchBytes, err := patch.GetAnnotationsPatch(map[string]string{
-		// Base64 encode both the signature and the payload
-		fmt.Sprintf(PayloadAnnotationFormat, key):   base64.StdEncoding.EncodeToString(req.Bundle.Content),
-		fmt.Sprintf(SignatureAnnotationFormat, key): base64.StdEncoding.EncodeToString(req.Bundle.Signature),
-		fmt.Sprintf(CertAnnotationsFormat, key):     base64.StdEncoding.EncodeToString(req.Bundle.Cert),
-		fmt.Sprintf(ChainAnnotationFormat, key):     base64.StdEncoding.EncodeToString(req.Bundle.Chain),
-	})
+
+	// Get current annotations from API server to ensure we have the latest state
+	currentAnnotations, err := obj.GetLatestAnnotations(ctx, s.client)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge existing annotations with new Chains annotations
+	mergedAnnotations := make(map[string]string)
+	for k, v := range currentAnnotations {
+		if strings.HasPrefix(k, ChainsAnnotationPrefix) {
+			mergedAnnotations[k] = v
+		}
+	}
+
+	// Add Chains-specific annotations
+	mergedAnnotations[fmt.Sprintf(PayloadAnnotationFormat, key)] = base64.StdEncoding.EncodeToString(req.Bundle.Content)
+	mergedAnnotations[fmt.Sprintf(SignatureAnnotationFormat, key)] = base64.StdEncoding.EncodeToString(req.Bundle.Signature)
+	mergedAnnotations[fmt.Sprintf(CertAnnotationsFormat, key)] = base64.StdEncoding.EncodeToString(req.Bundle.Cert)
+	mergedAnnotations[fmt.Sprintf(ChainAnnotationFormat, key)] = base64.StdEncoding.EncodeToString(req.Bundle.Chain)
+
+	patchBytes, err := patch.GetAnnotationsPatch(mergedAnnotations, obj)
 	if err != nil {
 		return nil, err
 	}
@@ -183,5 +201,10 @@ func (s *Storer) Store(ctx context.Context, req *api.StoreRequest[objects.Tekton
 	if patchErr != nil {
 		return nil, patchErr
 	}
+
+	// Note: Ideally here we'll update the in-memory object to keep it consistent through
+	// the reconciliation loop. It hasn't been done to preserve the existing controller behavior
+	// and maintain compatibility with existing tests. This could be revisited in the future.
+
 	return &api.StoreResponse{}, nil
 }
