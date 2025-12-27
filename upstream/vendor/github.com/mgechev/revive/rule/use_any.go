@@ -6,7 +6,7 @@ import (
 	"github.com/mgechev/revive/lint"
 )
 
-// UseAnyRule proposes to replace `interface{}` with its alias `any`.
+// UseAnyRule lints given else constructs.
 type UseAnyRule struct{}
 
 // Apply applies the rule to given file.
@@ -46,7 +46,7 @@ func (w lintUseAny) Visit(n ast.Node) ast.Visitor {
 	w.onFailure(lint.Failure{
 		Node:       n,
 		Confidence: 1,
-		Category:   lint.FailureCategoryNaming,
+		Category:   "naming",
 		Failure:    "since Go 1.18 'interface{}' can be replaced by 'any'",
 	})
 

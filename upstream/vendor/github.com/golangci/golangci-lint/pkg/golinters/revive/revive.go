@@ -8,8 +8,6 @@ import (
 	"go/token"
 	"os"
 	"reflect"
-	"slices"
-	"strings"
 	"sync"
 
 	"github.com/BurntSushi/toml"
@@ -29,10 +27,7 @@ import (
 
 const linterName = "revive"
 
-var (
-	debugf  = logutils.Debug(logutils.DebugKeyRevive)
-	isDebug = logutils.HaveDebugTag(logutils.DebugKeyRevive)
-)
+var debugf = logutils.Debug(logutils.DebugKeyRevive)
 
 // jsonObject defines a JSON object of a failure
 type jsonObject struct {
@@ -95,8 +90,6 @@ func newWrapper(settings *config.ReviveSettings) (*wrapper, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	displayRules(conf)
 
 	conf.GoVersion, err = hcversion.NewVersion(settings.Go)
 	if err != nil {
@@ -209,8 +202,8 @@ func toIssue(pass *analysis.Pass, object *jsonObject) goanalysis.Issue {
 // This function mimics the GetConfig function of revive.
 // This allows to get default values and right types.
 // https://github.com/golangci/golangci-lint/issues/1745
-// https://github.com/mgechev/revive/blob/v1.6.0/config/config.go#L230
-// https://github.com/mgechev/revive/blob/v1.6.0/config/config.go#L182-L188
+// https://github.com/mgechev/revive/blob/v1.5.0/config/config.go#L220
+// https://github.com/mgechev/revive/blob/v1.5.0/config/config.go#L172-L178
 func getConfig(cfg *config.ReviveSettings) (*lint.Config, error) {
 	conf := defaultConfig()
 
@@ -242,6 +235,8 @@ func getConfig(cfg *config.ReviveSettings) (*lint.Config, error) {
 		}
 		conf.Rules[k] = r
 	}
+
+	debugf("revive configuration: %#v", conf)
 
 	return conf, nil
 }
@@ -307,7 +302,7 @@ func safeTomlSlice(r []any) []any {
 }
 
 // This element is not exported by revive, so we need copy the code.
-// Extracted from https://github.com/mgechev/revive/blob/v1.6.0/config/config.go#L16
+// Extracted from https://github.com/mgechev/revive/blob/v1.5.0/config/config.go#L16
 var defaultRules = []lint.Rule{
 	&rule.VarDeclarationsRule{},
 	&rule.PackageCommentsRule{},
@@ -393,8 +388,6 @@ var allRules = append([]lint.Rule{
 	&rule.CommentsDensityRule{},
 	&rule.FileLengthLimitRule{},
 	&rule.FilenameFormatRule{},
-	&rule.RedundantBuildTagRule{},
-	&rule.UseErrorsNewRule{},
 }, defaultRules...)
 
 const defaultConfidence = 0.8
@@ -453,37 +446,4 @@ func defaultConfig() *lint.Config {
 		defaultConfig.Rules[r.Name()] = lint.RuleConfig{}
 	}
 	return &defaultConfig
-}
-
-func displayRules(conf *lint.Config) {
-	if !isDebug {
-		return
-	}
-
-	var enabledRules []string
-	for k, r := range conf.Rules {
-		if !r.Disabled {
-			enabledRules = append(enabledRules, k)
-		}
-	}
-
-	slices.Sort(enabledRules)
-
-	debugf("All available rules (%d): %s.", len(allRules), strings.Join(extractRulesName(allRules), ", "))
-	debugf("Default rules (%d): %s.", len(allRules), strings.Join(extractRulesName(allRules), ", "))
-	debugf("Enabled by config rules (%d): %s.", len(enabledRules), strings.Join(enabledRules, ", "))
-
-	debugf("revive configuration: %#v", conf)
-}
-
-func extractRulesName(rules []lint.Rule) []string {
-	var names []string
-
-	for _, r := range rules {
-		names = append(names, r.Name())
-	}
-
-	slices.Sort(names)
-
-	return names
 }

@@ -18,30 +18,28 @@ func New(settings *config.GodoxSettings) *goanalysis.Linter {
 		Name: linterName,
 		Doc:  goanalysis.TheOnlyanalyzerDoc,
 		Run: func(pass *analysis.Pass) (any, error) {
-			return run(pass, settings), nil
+			runGodox(pass, settings)
+
+			return nil, nil
 		},
 	}
 
 	return goanalysis.NewLinter(
 		linterName,
-		"Detects usage of FIXME, TODO and other keywords inside comments",
+		"Tool for detection of FIXME, TODO and other comment keywords",
 		[]*analysis.Analyzer{analyzer},
 		nil,
 	).WithLoadMode(goanalysis.LoadModeSyntax)
 }
 
-func run(pass *analysis.Pass, settings *config.GodoxSettings) error {
+func runGodox(pass *analysis.Pass, settings *config.GodoxSettings) {
 	for _, file := range pass.Files {
 		position, isGoFile := goanalysis.GetGoFilePosition(pass, file)
 		if !isGoFile {
 			continue
 		}
 
-		messages, err := godox.Run(file, pass.Fset, settings.Keywords...)
-		if err != nil {
-			return err
-		}
-
+		messages := godox.Run(file, pass.Fset, settings.Keywords...)
 		if len(messages) == 0 {
 			continue
 		}
@@ -57,6 +55,4 @@ func run(pass *analysis.Pass, settings *config.GodoxSettings) error {
 			})
 		}
 	}
-
-	return nil
 }

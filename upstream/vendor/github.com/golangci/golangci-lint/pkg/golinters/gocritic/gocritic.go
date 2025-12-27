@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"maps"
 	"reflect"
 	"runtime"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/go-critic/go-critic/checkers"
 	gocriticlinter "github.com/go-critic/go-critic/linter"
 	_ "github.com/quasilyte/go-ruleguard/dsl"
+	"golang.org/x/exp/maps"
 	"golang.org/x/tools/go/analysis"
 
 	"github.com/golangci/golangci-lint/pkg/config"
 	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/golinters/internal"
 	"github.com/golangci/golangci-lint/pkg/lint/linter"
 	"github.com/golangci/golangci-lint/pkg/logutils"
 )
@@ -58,10 +58,7 @@ Dynamic rules are written declaratively with AST patterns, filters, report messa
 		nil,
 	).
 		WithContextSetter(func(context *linter.Context) {
-			wrapper.replacer = strings.NewReplacer(
-				internal.PlaceholderBasePath, context.Cfg.GetBasePath(),
-				internal.PlaceholderConfigDir, context.Cfg.GetConfigDir(), //nolint:staticcheck // It must be removed in v2.
-			)
+			wrapper.configDir = context.Cfg.GetConfigDir()
 
 			wrapper.init(context.Log, settings)
 		}).
@@ -70,7 +67,7 @@ Dynamic rules are written declaratively with AST patterns, filters, report messa
 
 type goCriticWrapper struct {
 	settingsWrapper *settingsWrapper
-	replacer        *strings.Replacer
+	configDir       string
 	sizes           types.Sizes
 	once            sync.Once
 }
@@ -136,7 +133,6 @@ func (w *goCriticWrapper) buildEnabledCheckers(linterCtx *gocriticlinter.Context
 		if err != nil {
 			return nil, err
 		}
-
 		enabledCheckers = append(enabledCheckers, c)
 	}
 
@@ -167,7 +163,8 @@ func (w *goCriticWrapper) configureCheckerInfo(
 				info.Name, k)
 		}
 
-		supportedKeys := slices.Sorted(maps.Keys(info.Params))
+		supportedKeys := maps.Keys(info.Params)
+		sort.Strings(supportedKeys)
 
 		return fmt.Errorf("checker %s config param %s doesn't exist, all existing: %s",
 			info.Name, k, supportedKeys)
@@ -190,7 +187,7 @@ func (w *goCriticWrapper) normalizeCheckerParamsValue(p any) any {
 		return rv.Bool()
 	case reflect.String:
 		// Perform variable substitution.
-		return w.replacer.Replace(rv.String())
+		return strings.ReplaceAll(rv.String(), "${configDir}", w.configDir)
 	default:
 		return p
 	}
@@ -268,7 +265,8 @@ func newSettingsWrapper(settings *config.GoCriticSettings, logger logutils.Log) 
 		}
 	}
 
-	allTagsSorted := slices.Sorted(maps.Keys(allChecksByTag))
+	allTagsSorted := maps.Keys(allChecksByTag)
+	sort.Strings(allTagsSorted)
 
 	return &settingsWrapper{
 		GoCriticSettings:                settings,
@@ -296,7 +294,6 @@ func (s *settingsWrapper) InferEnabledChecks() {
 	s.debugChecksInitialState()
 
 	enabledByDefaultChecks, disabledByDefaultChecks := s.buildEnabledAndDisabledByDefaultChecks()
-
 	debugChecksListf(enabledByDefaultChecks, "Enabled by default")
 	debugChecksListf(disabledByDefaultChecks, "Disabled by default")
 
@@ -317,8 +314,7 @@ func (s *settingsWrapper) InferEnabledChecks() {
 
 	if len(s.EnabledTags) != 0 {
 		enabledFromTags := s.expandTagsToChecks(s.EnabledTags)
-
-		debugChecksListf(enabledFromTags, "Enabled by config tags %s", s.EnabledTags)
+		debugChecksListf(enabledFromTags, "Enabled by config tags %s", sprintSortedStrings(s.EnabledTags))
 
 		for _, check := range enabledFromTags {
 			enabledChecks[check] = struct{}{}
@@ -339,8 +335,7 @@ func (s *settingsWrapper) InferEnabledChecks() {
 
 	if len(s.DisabledTags) != 0 {
 		disabledFromTags := s.expandTagsToChecks(s.DisabledTags)
-
-		debugChecksListf(disabledFromTags, "Disabled by config tags %s", s.DisabledTags)
+		debugChecksListf(disabledFromTags, "Disabled by config tags %s", sprintSortedStrings(s.DisabledTags))
 
 		for _, check := range disabledFromTags {
 			delete(enabledChecks, check)
@@ -361,7 +356,6 @@ func (s *settingsWrapper) InferEnabledChecks() {
 
 	s.inferredEnabledChecks = enabledChecks
 	s.inferredEnabledChecksLowerCased = normalizeMap(s.inferredEnabledChecks)
-
 	s.debugChecksFinalState()
 }
 
@@ -555,7 +549,10 @@ func debugChecksListf(checks []string, format string, args ...any) {
 		return
 	}
 
-	v := slices.Sorted(slices.Values(checks))
+	debugf("%s checks (%d): %s", fmt.Sprintf(format, args...), len(checks), sprintSortedStrings(checks))
+}
 
-	debugf("%s checks (%d): %s", fmt.Sprintf(format, args...), len(checks), strings.Join(v, ", "))
+func sprintSortedStrings(v []string) string {
+	sort.Strings(slices.Clone(v))
+	return fmt.Sprint(v)
 }

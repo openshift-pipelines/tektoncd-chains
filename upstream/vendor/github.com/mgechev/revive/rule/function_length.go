@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"reflect"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
@@ -12,58 +13,32 @@ import (
 type FunctionLength struct {
 	maxStmt  int
 	maxLines int
+
+	configureOnce sync.Once
 }
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *FunctionLength) Configure(arguments lint.Arguments) error {
-	maxStmt, maxLines, err := r.parseArguments(arguments)
-	if err != nil {
-		return err
-	}
+func (r *FunctionLength) configure(arguments lint.Arguments) {
+	maxStmt, maxLines := r.parseArguments(arguments)
 	r.maxStmt = int(maxStmt)
 	r.maxLines = int(maxLines)
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *FunctionLength) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *FunctionLength) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	var failures []lint.Failure
-	for _, decl := range file.AST.Decls {
-		funcDecl, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
 
-		body := funcDecl.Body
-		emptyBody := body == nil || len(body.List) == 0
-		if emptyBody {
-			return nil
-		}
-
-		if r.maxStmt > 0 {
-			stmtCount := r.countStmts(body.List)
-			if stmtCount > r.maxStmt {
-				failures = append(failures, lint.Failure{
-					Confidence: 1,
-					Failure:    fmt.Sprintf("maximum number of statements per function exceeded; max %d but got %d", r.maxStmt, stmtCount),
-					Node:       funcDecl,
-				})
-			}
-		}
-
-		if r.maxLines > 0 {
-			lineCount := r.countLines(body, file)
-			if lineCount > r.maxLines {
-				failures = append(failures, lint.Failure{
-					Confidence: 1,
-					Failure:    fmt.Sprintf("maximum number of lines per function exceeded; max %d but got %d", r.maxLines, lineCount),
-					Node:       funcDecl,
-				})
-			}
-		}
+	walker := lintFuncLength{
+		file:     file,
+		maxStmt:  r.maxStmt,
+		maxLines: r.maxLines,
+		onFailure: func(failure lint.Failure) {
+			failures = append(failures, failure)
+		},
 	}
+
+	ast.Walk(walker, file.AST)
 
 	return failures
 }
@@ -73,69 +48,111 @@ func (*FunctionLength) Name() string {
 	return "function-length"
 }
 
-const (
-	defaultFuncStmtsLimit = 50
-	defaultFuncLinesLimit = 75
-)
+const defaultFuncStmtsLimit = 50
+const defaultFuncLinesLimit = 75
 
-func (*FunctionLength) parseArguments(arguments lint.Arguments) (maxStmt, maxLines int64, err error) {
+func (*FunctionLength) parseArguments(arguments lint.Arguments) (maxStmt, maxLines int64) {
 	if len(arguments) == 0 {
-		return defaultFuncStmtsLimit, defaultFuncLinesLimit, nil
+		return defaultFuncStmtsLimit, defaultFuncLinesLimit
 	}
 
 	const minArguments = 2
 	if len(arguments) != minArguments {
-		return 0, 0, fmt.Errorf(`invalid configuration for "function-length" rule, expected %d arguments but got %d`, minArguments, len(arguments))
+		panic(fmt.Sprintf(`invalid configuration for "function-length" rule, expected %d arguments but got %d`, minArguments, len(arguments)))
 	}
 
 	maxStmt, maxStmtOk := arguments[0].(int64)
 	if !maxStmtOk {
-		return 0, 0, fmt.Errorf(`invalid configuration value for max statements in "function-length" rule; need int64 but got %T`, arguments[0])
+		panic(fmt.Sprintf(`invalid configuration value for max statements in "function-length" rule; need int64 but got %T`, arguments[0]))
 	}
 	if maxStmt < 0 {
-		return 0, 0, fmt.Errorf(`the configuration value for max statements in "function-length" rule cannot be negative, got %d`, maxStmt)
+		panic(fmt.Sprintf(`the configuration value for max statements in "function-length" rule cannot be negative, got %d`, maxStmt))
 	}
 
 	maxLines, maxLinesOk := arguments[1].(int64)
 	if !maxLinesOk {
-		return 0, 0, fmt.Errorf(`invalid configuration value for max lines in "function-length" rule; need int64 but got %T`, arguments[1])
+		panic(fmt.Sprintf(`invalid configuration value for max lines in "function-length" rule; need int64 but got %T`, arguments[1]))
 	}
 	if maxLines < 0 {
-		return 0, 0, fmt.Errorf(`the configuration value for max statements in "function-length" rule cannot be negative, got %d`, maxLines)
+		panic(fmt.Sprintf(`the configuration value for max statements in "function-length" rule cannot be negative, got %d`, maxLines))
 	}
 
-	return maxStmt, maxLines, nil
+	return maxStmt, maxLines
 }
 
-func (*FunctionLength) countLines(b *ast.BlockStmt, file *lint.File) int {
-	return file.ToPosition(b.End()).Line - file.ToPosition(b.Pos()).Line - 1
+type lintFuncLength struct {
+	file      *lint.File
+	maxStmt   int
+	maxLines  int
+	onFailure func(lint.Failure)
 }
 
-func (r *FunctionLength) countStmts(b []ast.Stmt) int {
+func (w lintFuncLength) Visit(n ast.Node) ast.Visitor {
+	node, ok := n.(*ast.FuncDecl)
+	if !ok {
+		return w
+	}
+
+	body := node.Body
+	emptyBody := body == nil || len(node.Body.List) == 0
+	if emptyBody {
+		return nil
+	}
+
+	if w.maxStmt > 0 {
+		stmtCount := w.countStmts(node.Body.List)
+		if stmtCount > w.maxStmt {
+			w.onFailure(lint.Failure{
+				Confidence: 1,
+				Failure:    fmt.Sprintf("maximum number of statements per function exceeded; max %d but got %d", w.maxStmt, stmtCount),
+				Node:       node,
+			})
+		}
+	}
+
+	if w.maxLines > 0 {
+		lineCount := w.countLines(node.Body)
+		if lineCount > w.maxLines {
+			w.onFailure(lint.Failure{
+				Confidence: 1,
+				Failure:    fmt.Sprintf("maximum number of lines per function exceeded; max %d but got %d", w.maxLines, lineCount),
+				Node:       node,
+			})
+		}
+	}
+
+	return nil
+}
+
+func (w lintFuncLength) countLines(b *ast.BlockStmt) int {
+	return w.file.ToPosition(b.End()).Line - w.file.ToPosition(b.Pos()).Line - 1
+}
+
+func (w lintFuncLength) countStmts(b []ast.Stmt) int {
 	count := 0
 	for _, s := range b {
 		switch stmt := s.(type) {
 		case *ast.BlockStmt:
-			count += r.countStmts(stmt.List)
+			count += w.countStmts(stmt.List)
 		case *ast.IfStmt:
-			count += 1 + r.countBodyListStmts(stmt)
+			count += 1 + w.countBodyListStmts(stmt)
 			if stmt.Else != nil {
 				elseBody, ok := stmt.Else.(*ast.BlockStmt)
 				if ok {
-					count += r.countStmts(elseBody.List)
+					count += w.countStmts(elseBody.List)
 				}
 			}
 		case *ast.ForStmt, *ast.RangeStmt,
 			*ast.SwitchStmt, *ast.TypeSwitchStmt, *ast.SelectStmt:
-			count += 1 + r.countBodyListStmts(stmt)
+			count += 1 + w.countBodyListStmts(stmt)
 		case *ast.CaseClause:
-			count += r.countStmts(stmt.Body)
+			count += w.countStmts(stmt.Body)
 		case *ast.AssignStmt:
-			count += 1 + r.countFuncLitStmts(stmt.Rhs[0])
+			count += 1 + w.countFuncLitStmts(stmt.Rhs[0])
 		case *ast.GoStmt:
-			count += 1 + r.countFuncLitStmts(stmt.Call.Fun)
+			count += 1 + w.countFuncLitStmts(stmt.Call.Fun)
 		case *ast.DeferStmt:
-			count += 1 + r.countFuncLitStmts(stmt.Call.Fun)
+			count += 1 + w.countFuncLitStmts(stmt.Call.Fun)
 		default:
 			count++
 		}
@@ -144,15 +161,14 @@ func (r *FunctionLength) countStmts(b []ast.Stmt) int {
 	return count
 }
 
-func (r *FunctionLength) countFuncLitStmts(stmt ast.Expr) int {
+func (w lintFuncLength) countFuncLitStmts(stmt ast.Expr) int {
 	if block, ok := stmt.(*ast.FuncLit); ok {
-		return r.countStmts(block.Body.List)
+		return w.countStmts(block.Body.List)
 	}
-
 	return 0
 }
 
-func (r *FunctionLength) countBodyListStmts(t any) int {
+func (w lintFuncLength) countBodyListStmts(t any) int {
 	i := reflect.ValueOf(t).Elem().FieldByName(`Body`).Elem().FieldByName(`List`).Interface()
-	return r.countStmts(i.([]ast.Stmt))
+	return w.countStmts(i.([]ast.Stmt))
 }

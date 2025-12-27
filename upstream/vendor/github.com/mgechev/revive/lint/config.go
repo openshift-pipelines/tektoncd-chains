@@ -5,7 +5,7 @@ import (
 )
 
 // Arguments is type used for the arguments of a rule.
-type Arguments = []any
+type Arguments = []interface{}
 
 // FileFilters is type used for modeling file filters to apply to rules.
 type FileFilters = []*FileFilter
