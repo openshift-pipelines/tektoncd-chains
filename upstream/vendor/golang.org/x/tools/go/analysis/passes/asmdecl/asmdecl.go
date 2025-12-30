@@ -542,8 +542,8 @@ func appendComponentsRecursive(arch *asmArch, t types.Type, cc []component, suff
 		elem := tu.Elem()
 		// Calculate offset of each element array.
 		fields := []*types.Var{
-			types.NewField(token.NoPos, nil, "fake0", elem, false),
-			types.NewField(token.NoPos, nil, "fake1", elem, false),
+			types.NewVar(token.NoPos, nil, "fake0", elem),
+			types.NewVar(token.NoPos, nil, "fake1", elem),
 		}
 		offsets := arch.sizes.Offsetsof(fields)
 		elemoff := int(offsets[1])

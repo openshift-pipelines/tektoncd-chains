@@ -45,7 +45,7 @@ var Analyzer = &analysis.Analyzer{
 }
 
 // A pairsFact is a package-level fact that records
-// a set of key=value strings accumulated from constant
+// an set of key=value strings accumulated from constant
 // declarations in this package and its dependencies.
 // Elements are ordered by keys, which are unique.
 type pairsFact []string

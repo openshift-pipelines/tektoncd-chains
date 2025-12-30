@@ -16,7 +16,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/internal/analysisutil"
 	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/types/typeutil"
-	"golang.org/x/tools/internal/analysisinternal"
 )
 
 //go:embed doc.go
@@ -39,7 +38,7 @@ var Analyzer = &analysis.Analyzer{
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
-	if !analysisinternal.Imports(pass.Pkg, "testing") {
+	if !analysisutil.Imports(pass.Pkg, "testing") {
 		return nil, nil
 	}
 
