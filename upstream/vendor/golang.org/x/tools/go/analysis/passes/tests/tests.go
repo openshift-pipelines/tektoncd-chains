@@ -16,7 +16,6 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/internal/analysisutil"
-	"golang.org/x/tools/internal/analysisinternal"
 )
 
 //go:embed doc.go
@@ -258,7 +257,7 @@ func isTestingType(typ types.Type, testingType string) bool {
 	if !ok {
 		return false
 	}
-	return analysisinternal.IsTypeNamed(ptr.Elem(), "testing", testingType)
+	return analysisutil.IsNamedType(ptr.Elem(), "testing", testingType)
 }
 
 // Validate that fuzz target function's arguments are of accepted types.
