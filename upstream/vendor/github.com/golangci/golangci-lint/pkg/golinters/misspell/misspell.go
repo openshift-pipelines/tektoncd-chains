@@ -12,38 +12,50 @@ import (
 
 	"github.com/golangci/golangci-lint/pkg/config"
 	"github.com/golangci/golangci-lint/pkg/goanalysis"
-	"github.com/golangci/golangci-lint/pkg/golinters/internal"
+	"github.com/golangci/golangci-lint/pkg/lint/linter"
 )
 
 const linterName = "misspell"
 
 func New(settings *config.MisspellSettings) *goanalysis.Linter {
-	replacer, err := createMisspellReplacer(settings)
-	if err != nil {
-		internal.LinterLogger.Fatalf("%s: %v", linterName, err)
-	}
-
-	a := &analysis.Analyzer{
+	analyzer := &analysis.Analyzer{
 		Name: linterName,
-		Doc:  "Finds commonly misspelled English words",
-		Run: func(pass *analysis.Pass) (any, error) {
-			for _, file := range pass.Files {
-				err := runMisspellOnFile(pass, file, replacer, settings.Mode)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			return nil, nil
-		},
+		Doc:  goanalysis.TheOnlyanalyzerDoc,
+		Run:  goanalysis.DummyRun,
 	}
 
 	return goanalysis.NewLinter(
-		a.Name,
-		a.Doc,
-		[]*analysis.Analyzer{a},
+		linterName,
+		"Finds commonly misspelled English words",
+		[]*analysis.Analyzer{analyzer},
 		nil,
-	).WithLoadMode(goanalysis.LoadModeSyntax)
+	).WithContextSetter(func(lintCtx *linter.Context) {
+		replacer, ruleErr := createMisspellReplacer(settings)
+
+		analyzer.Run = func(pass *analysis.Pass) (any, error) {
+			if ruleErr != nil {
+				return nil, ruleErr
+			}
+
+			err := runMisspell(lintCtx, pass, replacer, settings.Mode)
+			if err != nil {
+				return nil, err
+			}
+
+			return nil, nil
+		}
+	}).WithLoadMode(goanalysis.LoadModeSyntax)
+}
+
+func runMisspell(lintCtx *linter.Context, pass *analysis.Pass, replacer *misspell.Replacer, mode string) error {
+	for _, file := range pass.Files {
+		err := runMisspellOnFile(lintCtx, pass, file, replacer, mode)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func createMisspellReplacer(settings *config.MisspellSettings) (*misspell.Replacer, error) {
@@ -78,15 +90,13 @@ func createMisspellReplacer(settings *config.MisspellSettings) (*misspell.Replac
 	return replacer, nil
 }
 
-func runMisspellOnFile(pass *analysis.Pass, file *ast.File, replacer *misspell.Replacer, mode string) error {
+func runMisspellOnFile(lintCtx *linter.Context, pass *analysis.Pass, file *ast.File, replacer *misspell.Replacer, mode string) error {
 	position, isGoFile := goanalysis.GetGoFilePosition(pass, file)
 	if !isGoFile {
 		return nil
 	}
 
-	// Uses the non-adjusted file to work with cgo:
-	// if we read the real file, the positions are wrong in some cases.
-	fileContent, err := pass.ReadFile(pass.Fset.PositionFor(file.Pos(), false).Filename)
+	fileContent, err := lintCtx.FileCache.GetFileBytes(position.Filename)
 	if err != nil {
 		return fmt.Errorf("can't get file %s contents: %w", position.Filename, err)
 	}

@@ -21,7 +21,7 @@ import (
 
 // CopyOptions is the top level wrapper for the copy command.
 type CopyOptions struct {
-	CopyOnly      []string
+	CopyOnly      string
 	SignatureOnly bool
 	Force         bool
 	Platform      string
@@ -34,7 +34,7 @@ var _ Interface = (*CopyOptions)(nil)
 func (o *CopyOptions) AddFlags(cmd *cobra.Command) {
 	o.Registry.AddFlags(cmd)
 
-	cmd.Flags().StringSliceVar(&o.CopyOnly, "only", []string{},
+	cmd.Flags().StringVar(&o.CopyOnly, "only", "",
 		"custom string array to only copy specific items, this flag is comma delimited. ex: --only=sig,att,sbom")
 
 	cmd.Flags().BoolVar(&o.SignatureOnly, "sig-only", false,

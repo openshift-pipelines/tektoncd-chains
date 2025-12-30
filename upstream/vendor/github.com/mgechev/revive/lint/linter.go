@@ -10,10 +10,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	goversion "github.com/hashicorp/go-version"
 	"golang.org/x/mod/modfile"
-	"golang.org/x/sync/errgroup"
 )
 
 // ReadFile defines an abstraction for reading files.
@@ -54,8 +54,8 @@ func (l Linter) readFile(path string) (result []byte, err error) {
 }
 
 var (
-	generatedPrefix  = []byte("// Code generated ")
-	generatedSuffix  = []byte(" DO NOT EDIT.")
+	genHdr           = []byte("// Code generated ")
+	genFtr           = []byte(" DO NOT EDIT.")
 	defaultGoVersion = goversion.Must(goversion.NewVersion("1.0"))
 )
 
@@ -63,7 +63,7 @@ var (
 func (l *Linter) Lint(packages [][]string, ruleSet []Rule, config Config) (<-chan Failure, error) {
 	failures := make(chan Failure)
 
-	perModVersions := map[string]*goversion.Version{}
+	perModVersions := make(map[string]*goversion.Version)
 	perPkgVersions := make([]*goversion.Version, len(packages))
 	for n, files := range packages {
 		if len(files) == 0 {
@@ -101,23 +101,20 @@ func (l *Linter) Lint(packages [][]string, ruleSet []Rule, config Config) (<-cha
 		perPkgVersions[n] = v
 	}
 
-	var wg errgroup.Group
+	var wg sync.WaitGroup
 	for n := range packages {
-		wg.Go(func() error {
-			pkg := packages[n]
-			gover := perPkgVersions[n]
+		wg.Add(1)
+		go func(pkg []string, gover *goversion.Version) {
 			if err := l.lintPackage(pkg, gover, ruleSet, config, failures); err != nil {
-				return fmt.Errorf("error during linting: %w", err)
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
 			}
-			return nil
-		})
+			wg.Done()
+		}(packages[n], perPkgVersions[n])
 	}
 
 	go func() {
-		err := wg.Wait()
-		if err != nil {
-			failures <- NewInternalFailure(err.Error())
-		}
+		wg.Wait()
 		close(failures)
 	}()
 
@@ -155,7 +152,9 @@ func (l *Linter) lintPackage(filenames []string, gover *goversion.Version, ruleS
 		return nil
 	}
 
-	return pkg.lint(ruleSet, config, failures)
+	pkg.lint(ruleSet, config, failures)
+
+	return nil
 }
 
 func detectGoMod(dir string) (rootDir string, ver *goversion.Version, err error) {
@@ -166,12 +165,12 @@ func detectGoMod(dir string) (rootDir string, ver *goversion.Version, err error)
 
 	mod, err := os.ReadFile(modFileName)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to read %q, got %w", modFileName, err)
+		return "", nil, fmt.Errorf("failed to read %q, got %v", modFileName, err)
 	}
 
 	modAst, err := modfile.ParseLax(modFileName, mod, nil)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to parse %q, got %w", modFileName, err)
+		return "", nil, fmt.Errorf("failed to parse %q, got %v", modFileName, err)
 	}
 
 	if modAst.Go == nil {
@@ -210,7 +209,7 @@ func isGenerated(src []byte) bool {
 	sc := bufio.NewScanner(bytes.NewReader(src))
 	for sc.Scan() {
 		b := sc.Bytes()
-		if bytes.HasPrefix(b, generatedPrefix) && bytes.HasSuffix(b, generatedSuffix) && len(b) >= len(generatedPrefix)+len(generatedSuffix) {
+		if bytes.HasPrefix(b, genHdr) && bytes.HasSuffix(b, genFtr) && len(b) >= len(genHdr)+len(genFtr) {
 			return true
 		}
 	}
@@ -223,7 +222,7 @@ func addInvalidFileFailure(filename, errStr string, failures chan Failure) {
 	failures <- Failure{
 		Confidence: 1,
 		Failure:    fmt.Sprintf("invalid file %s: %v", filename, errStr),
-		Category:   failureCategoryValidity,
+		Category:   "validity",
 		Position:   position,
 	}
 }

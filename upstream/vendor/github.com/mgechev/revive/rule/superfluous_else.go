@@ -12,7 +12,7 @@ type SuperfluousElseRule struct{}
 
 // Apply applies the rule to given file.
 func (e *SuperfluousElseRule) Apply(file *lint.File, args lint.Arguments) []lint.Failure {
-	return ifelse.Apply(e.checkIfElse, file.AST, ifelse.TargetElse, args)
+	return ifelse.Apply(e, file.AST, ifelse.TargetElse, args)
 }
 
 // Name returns the rule name.
@@ -20,31 +20,28 @@ func (*SuperfluousElseRule) Name() string {
 	return "superfluous-else"
 }
 
-func (*SuperfluousElseRule) checkIfElse(chain ifelse.Chain, args ifelse.Args) (string, bool) {
-	if !chain.HasElse {
-		return "", false
-	}
-
+// CheckIfElse evaluates the rule against an ifelse.Chain and returns a failure message if applicable.
+func (*SuperfluousElseRule) CheckIfElse(chain ifelse.Chain, args ifelse.Args) string {
 	if !chain.If.Deviates() {
 		// this rule only applies if the if-block deviates control flow
-		return "", false
+		return ""
 	}
 
 	if chain.HasPriorNonDeviating {
 		// if we de-indent the "else" block then a previous branch
-		// might flow into it, affecting program behavior
-		return "", false
+		// might flow into it, affecting program behaviour
+		return ""
 	}
 
 	if chain.If.Returns() {
 		// avoid overlapping with indent-error-flow
-		return "", false
+		return ""
 	}
 
-	if args.PreserveScope && !chain.AtBlockEnd && (chain.HasInitializer || chain.Else.HasDecls()) {
+	if args.PreserveScope && !chain.AtBlockEnd && (chain.HasInitializer || chain.Else.HasDecls) {
 		// avoid increasing variable scope
-		return "", false
+		return ""
 	}
 
-	return fmt.Sprintf("if block ends with %v, so drop this else and outdent its block", chain.If.LongString()), true
+	return fmt.Sprintf("if block ends with %v, so drop this else and outdent its block", chain.If.LongString())
 }

@@ -30,7 +30,7 @@ var imageResultsNamesSuffixs = []string{
 }
 
 // GetResultsWithoutBuildArtifacts returns all the results without those that are build artifacts.
-func GetResultsWithoutBuildArtifacts(objName string, results []objects.Result, resultTypePrefix string) ([]*slsa.ResourceDescriptor, error) {
+func GetResultsWithoutBuildArtifacts(results []objects.Result, resultTypePrefix string) ([]*slsa.ResourceDescriptor, error) {
 	byProd := []*slsa.ResourceDescriptor{}
 	for _, r := range results {
 		if isBuildArtifact, err := artifacts.IsBuildArtifact(r); err != nil || isBuildArtifact {
@@ -47,7 +47,7 @@ func GetResultsWithoutBuildArtifacts(objName string, results []objects.Result, r
 		}
 
 		byProd = append(byProd, &slsa.ResourceDescriptor{
-			Name:      fmt.Sprintf(resultTypePrefix, objName, r.Name),
+			Name:      fmt.Sprintf(resultTypePrefix, r.Name),
 			Content:   content,
 			MediaType: "application/json",
 		})

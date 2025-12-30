@@ -25,6 +25,7 @@ import (
 	"github.com/golangci/golangci-lint/pkg/golinters/errorlint"
 	"github.com/golangci/golangci-lint/pkg/golinters/exhaustive"
 	"github.com/golangci/golangci-lint/pkg/golinters/exhaustruct"
+	"github.com/golangci/golangci-lint/pkg/golinters/exportloopref"
 	"github.com/golangci/golangci-lint/pkg/golinters/exptostd"
 	"github.com/golangci/golangci-lint/pkg/golinters/fatcontext"
 	"github.com/golangci/golangci-lint/pkg/golinters/forbidigo"
@@ -180,7 +181,6 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 		linter.NewConfig(copyloopvar.New(&cfg.LintersSettings.CopyLoopVar)).
 			WithSince("v1.57.0").
 			WithPresets(linter.PresetStyle).
-			WithAutoFix().
 			WithURL("https://github.com/karamaru-alpha/copyloopvar").
 			WithNoopFallback(cfg, linter.IsGoLowerThanGo122()),
 
@@ -197,10 +197,10 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 		linter.NewConfig(linter.NewNoopDeprecated("deadcode", cfg, linter.DeprecationError)).
 			WithSince("v1.0.0").
 			WithPresets(linter.PresetUnused).
-			WithURL("https://github.com/remyoudompheng/go-misc/tree/HEAD/deadcode").
+			WithURL("https://github.com/remyoudompheng/go-misc/tree/master/deadcode").
 			DeprecatedError("The owner seems to have abandoned the linter.", "v1.49.0", "unused"),
 
-		linter.NewConfig(depguard.New(&cfg.LintersSettings.Depguard, cfg.GetBasePath())).
+		linter.NewConfig(depguard.New(&cfg.LintersSettings.Depguard)).
 			WithSince("v1.4.0").
 			WithPresets(linter.PresetStyle, linter.PresetImport, linter.PresetModule).
 			WithURL("https://github.com/OpenPeeDeeP/depguard"),
@@ -277,12 +277,12 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithLoadForGoAnalysis().
 			WithURL("https://github.com/GaijinEntertainment/go-exhaustruct"),
 
-		linter.NewConfig(linter.NewNoopDeprecated("exportloopref", cfg, linter.DeprecationError)).
+		linter.NewConfig(exportloopref.New()).
 			WithSince("v1.28.0").
 			WithPresets(linter.PresetBugs).
 			WithLoadForGoAnalysis().
 			WithURL("https://github.com/kyoh86/exportloopref").
-			DeprecatedError("Since Go1.22 (loopvar) this linter is no longer relevant.", "v1.60.2", "copyloopvar"),
+			DeprecatedWarning("Since Go1.22 (loopvar) this linter is no longer relevant.", "v1.60.2", "copyloopvar"),
 
 		linter.NewConfig(exptostd.New()).
 			WithSince("v1.63.0").
@@ -304,10 +304,9 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 		linter.NewConfig(forcetypeassert.New()).
 			WithSince("v1.38.0").
 			WithPresets(linter.PresetStyle).
-			WithLoadForGoAnalysis().
 			WithURL("https://github.com/gostaticanalysis/forcetypeassert"),
 
-		linter.NewConfig(fatcontext.New(&cfg.LintersSettings.Fatcontext)).
+		linter.NewConfig(fatcontext.New()).
 			WithSince("v1.58.0").
 			WithPresets(linter.PresetPerformance).
 			WithLoadForGoAnalysis().
@@ -406,7 +405,7 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithAutoFix().
 			WithURL("https://github.com/mvdan/gofumpt"),
 
-		linter.NewConfig(goheader.New(&cfg.LintersSettings.Goheader, cfg.GetBasePath())).
+		linter.NewConfig(goheader.New(&cfg.LintersSettings.Goheader)).
 			WithSince("v1.28.0").
 			WithPresets(linter.PresetStyle).
 			WithAutoFix().
@@ -464,7 +463,7 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithPresets(linter.PresetStyle).
 			WithAlternativeNames(megacheckName).
 			WithAutoFix().
-			WithURL("https://github.com/dominikh/go-tools/tree/HEAD/simple"),
+			WithURL("https://github.com/dominikh/go-tools/tree/master/simple"),
 
 		linter.NewConfig(gosmopolitan.New(&cfg.LintersSettings.Gosmopolitan)).
 			WithSince("v1.53.0").
@@ -751,7 +750,7 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithLoadForGoAnalysis().
 			WithPresets(linter.PresetStyle).
 			WithAutoFix().
-			WithURL("https://github.com/dominikh/go-tools/tree/HEAD/stylecheck"),
+			WithURL("https://github.com/dominikh/go-tools/tree/master/stylecheck"),
 
 		linter.NewConfig(tagalign.New(&cfg.LintersSettings.TagAlign)).
 			WithSince("v1.53.0").
@@ -769,8 +768,7 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithSince("v1.43.0").
 			WithPresets(linter.PresetTest).
 			WithLoadForGoAnalysis().
-			WithURL("https://github.com/sivchari/tenv").
-			DeprecatedWarning("Duplicate feature in another linter.", "v1.64.0", "usetesting"),
+			WithURL("https://github.com/sivchari/tenv"),
 
 		linter.NewConfig(testableexamples.New()).
 			WithSince("v1.50.0").
@@ -826,7 +824,7 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithAlternativeNames(megacheckName).
 			ConsiderSlow().
 			WithChangeTypes().
-			WithURL("https://github.com/dominikh/go-tools/tree/HEAD/unused"),
+			WithURL("https://github.com/dominikh/go-tools/tree/master/unused"),
 
 		linter.NewConfig(usestdlibvars.New(&cfg.LintersSettings.UseStdlibVars)).
 			WithSince("v1.48.0").
@@ -888,6 +886,6 @@ func (LinterBuilder) Build(cfg *config.Config) ([]*linter.Config, error) {
 			WithSince("v1.26.0").
 			WithPresets(linter.PresetStyle).
 			WithAutoFix().
-			WithURL("https://github.com/golangci/golangci-lint/tree/HEAD/pkg/golinters/nolintlint/internal"),
+			WithURL("https://github.com/golangci/golangci-lint/tree/master/pkg/golinters/nolintlint/internal"),
 	}, nil
 }
