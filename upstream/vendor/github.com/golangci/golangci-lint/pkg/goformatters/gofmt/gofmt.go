@@ -12,18 +12,18 @@ type Formatter struct {
 	options gofmt.Options
 }
 
-func New(settings *config.GoFmtSettings) *Formatter {
-	options := gofmt.Options{}
-
-	if settings != nil {
-		options.NeedSimplify = settings.Simplify
-
-		for _, rule := range settings.RewriteRules {
-			options.RewriteRules = append(options.RewriteRules, gofmt.RewriteRule(rule))
-		}
+func New(cfg config.GoFmtSettings) *Formatter {
+	var rewriteRules []gofmt.RewriteRule
+	for _, rule := range cfg.RewriteRules {
+		rewriteRules = append(rewriteRules, gofmt.RewriteRule(rule))
 	}
 
-	return &Formatter{options: options}
+	return &Formatter{
+		options: gofmt.Options{
+			NeedSimplify: cfg.Simplify,
+			RewriteRules: rewriteRules,
+		},
+	}
 }
 
 func (*Formatter) Name() string {
