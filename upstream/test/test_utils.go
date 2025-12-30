@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -130,6 +131,7 @@ var simpleTaskRun = v1.TaskRun{
 
 func makeBucket(t *testing.T, client *storage.Client) (string, func()) {
 	// Make a bucket
+	t.Helper()
 	rand.Seed(time.Now().UnixNano())
 	testBucketName := fmt.Sprintf("tekton-chains-e2e-%d", rand.Intn(1000))
 
@@ -161,6 +163,7 @@ func makeBucket(t *testing.T, client *storage.Client) (string, func()) {
 }
 
 func readObj(t *testing.T, bucket, name string, client *storage.Client) io.Reader {
+	t.Helper()
 	ctx := context.Background()
 	reader, err := client.Bucket(bucket).Object(name).NewReader(ctx)
 	if err != nil {
@@ -170,9 +173,36 @@ func readObj(t *testing.T, bucket, name string, client *storage.Client) io.Reade
 }
 
 func setConfigMap(ctx context.Context, t *testing.T, c *clients, data map[string]string) func() {
+	t.Helper()
 	// Change the config to be GCS storage with this bucket.
 	// Note(rgreinho): This comment does not look right...
-	cm, err := c.KubeClient.CoreV1().ConfigMaps("tekton-chains").Get(ctx, "chains-config", metav1.GetOptions{})
+	clean := updateConfigMap(ctx, t, c, data, namespace, "chains-config")
+
+	err := restartChainsControllerPod(ctx, c.KubeClient, 300*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to restart the pod: %v", err)
+	}
+
+	return clean
+}
+
+func setupPipelinesFeatureFlags(ctx context.Context, t *testing.T, c *clients, data map[string]string) func() {
+	t.Helper()
+	pipelinesNs := "tekton-pipelines"
+
+	clean := updateConfigMap(ctx, t, c, data, pipelinesNs, "feature-flags")
+
+	err := restartControllerPod(ctx, c.KubeClient, 300*time.Second, pipelinesNs, "app.kubernetes.io/component=controller")
+	if err != nil {
+		t.Fatalf("Failed to restart the pod: %v", err)
+	}
+
+	return clean
+}
+
+func updateConfigMap(ctx context.Context, t *testing.T, c *clients, data map[string]string, ns, configMapName string) func() {
+	t.Helper()
+	cm, err := c.KubeClient.CoreV1().ConfigMaps(ns).Get(ctx, configMapName, metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,13 +220,9 @@ func setConfigMap(ctx context.Context, t *testing.T, c *clients, data map[string
 	for k, v := range data {
 		cm.Data[k] = v
 	}
-	cm, err = c.KubeClient.CoreV1().ConfigMaps("tekton-chains").Update(ctx, cm, metav1.UpdateOptions{})
+	cm, err = c.KubeClient.CoreV1().ConfigMaps(ns).Update(ctx, cm, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)
-	}
-	err = restartChainsControllerPod(ctx, c.KubeClient, 300*time.Second)
-	if err != nil {
-		t.Fatalf("Failed to restart the pod: %v", err)
 	}
 
 	return func() {
@@ -206,31 +232,50 @@ func setConfigMap(ctx context.Context, t *testing.T, c *clients, data map[string
 		for k, v := range oldData {
 			cm.Data[k] = v
 		}
-		if _, err := c.KubeClient.CoreV1().ConfigMaps("tekton-chains").Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.KubeClient.CoreV1().ConfigMaps(ns).Update(ctx, cm, metav1.UpdateOptions{}); err != nil {
 			t.Log(err)
 		}
 	}
 }
 
 func printDebugging(t *testing.T, obj objects.TektonObject) {
+	t.Helper()
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
+	// Validate and sanitize inputs to prevent potential command injection
+	if !isValidKubernetesKind(kind) {
+		t.Logf("Invalid kind: %s, skipping logs", kind)
+		return
+	}
+
+	objNamespace := obj.GetNamespace()
+	objName := obj.GetName()
+
+	if !isValidKubernetesName(objNamespace) || !isValidKubernetesName(objName) {
+		t.Logf("Invalid namespace or name: %s/%s, skipping logs", objNamespace, objName)
+		return
+	}
+
 	t.Logf("============================== %s logs ==============================", obj.GetGVK())
-	output, _ := exec.Command("tkn", strings.ToLower(kind), "logs", "-n", obj.GetNamespace(), obj.GetName()).CombinedOutput()
+	// #nosec G204 -- objNamespace and objName are validated by isValidKubernetesName to prevent command injection
+	output, _ := exec.Command("tkn", strings.ToLower(kind), "logs", "--namespace", objNamespace, objName).CombinedOutput()
 	t.Log(string(output))
 
 	t.Logf("============================== %s describe ==============================", obj.GetGVK())
-	output, _ = exec.Command("tkn", strings.ToLower(kind), "describe", "-n", obj.GetNamespace(), obj.GetName()).CombinedOutput()
+	// #nosec G204 -- objNamespace and objName are validated by isValidKubernetesName to prevent command injection
+	output, _ = exec.Command("tkn", strings.ToLower(kind), "describe", "--namespace", objNamespace, objName).CombinedOutput()
 	t.Log(string(output))
 
 	t.Log("============================== chains controller logs ==============================")
-	output, _ = exec.Command("kubectl", "logs", "deploy/tekton-chains-controller", "-n", "tekton-chains").CombinedOutput()
+	// #nosec G204 -- namespace is a package-level constant, not user input
+	output, _ = exec.Command("kubectl", "logs", "deploy/tekton-chains-controller", "--namespace", namespace).CombinedOutput()
 	t.Log(string(output))
 }
 
 func verifySignature(ctx context.Context, t *testing.T, c *clients, obj objects.TektonObject) {
+	t.Helper()
 	// Retrieve the configuration.
-	chainsConfig, err := c.KubeClient.CoreV1().ConfigMaps("tekton-chains").Get(ctx, "chains-config", metav1.GetOptions{})
+	chainsConfig, err := c.KubeClient.CoreV1().ConfigMaps(namespace).Get(ctx, "chains-config", metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("error retrieving tekton chains configmap: %s", err)
 		return
@@ -255,12 +300,6 @@ func verifySignature(ctx context.Context, t *testing.T, c *clients, obj objects.
 		configuredBackends = sets.List[string](cfg.Artifacts.TaskRuns.StorageBackend)
 		key = fmt.Sprintf("taskrun-%s", obj.GetUID())
 	case *objects.PipelineRunObjectV1:
-		configuredBackends = sets.List[string](cfg.Artifacts.PipelineRuns.StorageBackend)
-		key = fmt.Sprintf("pipelinerun-%s", obj.GetUID())
-	case *objects.TaskRunObjectV1Beta1:
-		configuredBackends = sets.List[string](cfg.Artifacts.TaskRuns.StorageBackend)
-		key = fmt.Sprintf("taskrun-%s", obj.GetUID())
-	case *objects.PipelineRunObjectV1Beta1:
 		configuredBackends = sets.List[string](cfg.Artifacts.PipelineRuns.StorageBackend)
 		key = fmt.Sprintf("pipelinerun-%s", obj.GetUID())
 	}
@@ -297,7 +336,11 @@ func verifySignature(ctx context.Context, t *testing.T, c *clients, obj objects.
 // restartChainsControllerPod restarts the pod running Chains
 // it then waits for a given timeout for the pod to resume running state
 func restartChainsControllerPod(ctx context.Context, c kubernetes.Interface, timeout time.Duration) error {
-	pods, err := c.CoreV1().Pods("tekton-chains").List(ctx, metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=controller"})
+	return restartControllerPod(ctx, c, timeout, namespace, "app.kubernetes.io/component=controller")
+}
+
+func restartControllerPod(ctx context.Context, c kubernetes.Interface, timeout time.Duration, ns, labelSelector string) error {
+	pods, err := c.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		return err
 	}
@@ -310,7 +353,7 @@ func restartChainsControllerPod(ctx context.Context, c kubernetes.Interface, tim
 	}
 
 	return wait.PollUntilContextTimeout(ctx, 2*time.Second, timeout, true, func(context.Context) (done bool, err error) {
-		pods, err := c.CoreV1().Pods("tekton-chains").List(context.Background(), metav1.ListOptions{LabelSelector: "app.kubernetes.io/component=controller"})
+		pods, err := c.CoreV1().Pods(ns).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 		if err != nil {
 			return false, err
 		}
@@ -322,4 +365,27 @@ func restartChainsControllerPod(ctx context.Context, c kubernetes.Interface, tim
 		}
 		return false, nil
 	})
+}
+
+// isValidKubernetesKind validates that a string is a valid Kubernetes kind
+func isValidKubernetesKind(kind string) bool {
+	// Allow common Tekton kinds
+	validKinds := []string{"TaskRun", "PipelineRun", "Task", "Pipeline"}
+	for _, validKind := range validKinds {
+		if strings.EqualFold(kind, validKind) {
+			return true
+		}
+	}
+	return false
+}
+
+// isValidKubernetesName validates that a string follows Kubernetes naming rules
+// DNS-1123 subdomain rules: lowercase alphanumeric characters, '-' or '.'
+func isValidKubernetesName(name string) bool {
+	if len(name) == 0 || len(name) > 253 {
+		return false
+	}
+	// Kubernetes names should match DNS-1123 subdomain rules
+	matched, _ := regexp.MatchString(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`, name)
+	return matched
 }
