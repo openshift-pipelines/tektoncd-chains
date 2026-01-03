@@ -65,9 +65,8 @@ func (o *URLOpener) OpenCollectionURL(ctx context.Context, u *url.URL) (*docstor
 	}
 
 	options := &Options{
-		RevisionField:           q.Get("revision_field"),
-		Filename:                q.Get("filename"),
-		AllowNestedSliceQueries: q.Get("allow_nested_slice_queries") == "true",
+		RevisionField: q.Get("revision_field"),
+		Filename:      q.Get("filename"),
 		onClose: func() {
 			o.mu.Lock()
 			delete(o.collections, collName)
@@ -76,7 +75,6 @@ func (o *URLOpener) OpenCollectionURL(ctx context.Context, u *url.URL) (*docstor
 	}
 	q.Del("revision_field")
 	q.Del("filename")
-	q.Del("allow_nested_slice_queries")
 	for param := range q {
 		return nil, fmt.Errorf("open collection %v: invalid query parameter %q", u, param)
 	}

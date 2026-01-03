@@ -8,7 +8,7 @@ import (
 	"github.com/mgechev/revive/lint"
 )
 
-// OptimizeOperandsOrderRule checks inefficient conditional expressions.
+// OptimizeOperandsOrderRule lints given else constructs.
 type OptimizeOperandsOrderRule struct{}
 
 // Apply applies the rule to given file.
@@ -78,7 +78,7 @@ func (w lintOptimizeOperandsOrderlExpr) Visit(node ast.Node) ast.Visitor {
 	w.onFailure(lint.Failure{
 		Failure:    fmt.Sprintf("for better performance '%v' might be rewritten as '%v'", gofmt(binExpr), gofmt(&newExpr)),
 		Node:       node,
-		Category:   lint.FailureCategoryOptimization,
+		Category:   "optimization",
 		Confidence: 0.3,
 	})
 

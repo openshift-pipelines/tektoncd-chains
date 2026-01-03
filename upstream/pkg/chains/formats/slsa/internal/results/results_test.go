@@ -28,7 +28,6 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 	tests := []struct {
 		name     string
 		prefix   string
-		objName  string
 		results  []objects.Result
 		expected []*slsa.ResourceDescriptor
 	}{
@@ -37,9 +36,8 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 			expected: []*slsa.ResourceDescriptor{},
 		},
 		{
-			name:    "results without build artifacts",
-			prefix:  "taskRunResults/%s/%s",
-			objName: "taskRun-name",
+			name:   "results without build artifacts",
+			prefix: "taskRunResults/%s",
 			results: []objects.Result{
 				{
 					Name: "result1",
@@ -126,7 +124,7 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 			},
 			expected: []*slsa.ResourceDescriptor{
 				{
-					Name:      "taskRunResults/taskRun-name/result1",
+					Name:      "taskRunResults/result1",
 					MediaType: "application/json",
 					Content: toJSONString(t, v1.ParamValue{
 						Type:      v1.ParamTypeString,
@@ -134,7 +132,7 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 					}),
 				},
 				{
-					Name:      "taskRunResults/taskRun-name/res2-ARTIFACT_URI",
+					Name:      "taskRunResults/res2-ARTIFACT_URI",
 					MediaType: "application/json",
 					Content: toJSONString(t, v1.ParamValue{
 						Type:      v1.ParamTypeString,
@@ -142,7 +140,7 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 					}),
 				},
 				{
-					Name:      "taskRunResults/taskRun-name/res2-ARTIFACT_DIGEST",
+					Name:      "taskRunResults/res2-ARTIFACT_DIGEST",
 					MediaType: "application/json",
 					Content: toJSONString(t, v1.ParamValue{
 						Type:      v1.ParamTypeString,
@@ -150,7 +148,7 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 					}),
 				},
 				{
-					Name:      "taskRunResults/taskRun-name/res3-ARTIFACT_OUTPUTS",
+					Name:      "taskRunResults/res3-ARTIFACT_OUTPUTS",
 					MediaType: "application/json",
 					Content: toJSONString(t, v1.ParamValue{
 						Type: v1.ParamTypeObject,
@@ -161,7 +159,7 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 					}),
 				},
 				{
-					Name:      "taskRunResults/taskRun-name/res5-ARTIFACT_OUTPUTS",
+					Name:      "taskRunResults/res5-ARTIFACT_OUTPUTS",
 					MediaType: "application/json",
 					Content: toJSONString(t, v1.ParamValue{
 						Type: v1.ParamTypeObject,
@@ -178,7 +176,7 @@ func TestGetResultsWithoutBuildArtifacts(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := GetResultsWithoutBuildArtifacts(test.objName, test.results, test.prefix)
+			got, err := GetResultsWithoutBuildArtifacts(test.results, test.prefix)
 
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)

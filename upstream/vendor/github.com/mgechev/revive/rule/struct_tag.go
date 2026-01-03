@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/fatih/structtag"
 	"github.com/mgechev/revive/lint"
@@ -13,29 +14,25 @@ import (
 // StructTagRule lints struct tags.
 type StructTagRule struct {
 	userDefined map[string][]string // map: key -> []option
+
+	configureOnce sync.Once
 }
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *StructTagRule) Configure(arguments lint.Arguments) error {
+func (r *StructTagRule) configure(arguments lint.Arguments) {
 	if len(arguments) == 0 {
-		return nil
+		return
 	}
 
-	err := checkNumberOfArguments(1, arguments, r.Name())
-	if err != nil {
-		return err
-	}
+	checkNumberOfArguments(1, arguments, r.Name())
 	r.userDefined = make(map[string][]string, len(arguments))
 	for _, arg := range arguments {
 		item, ok := arg.(string)
 		if !ok {
-			return fmt.Errorf("invalid argument to the %s rule. Expecting a string, got %v (of type %T)", r.Name(), arg, arg)
+			panic(fmt.Sprintf("Invalid argument to the %s rule. Expecting a string, got %v (of type %T)", r.Name(), arg, arg))
 		}
 		parts := strings.Split(item, ",")
 		if len(parts) < 2 {
-			return fmt.Errorf("invalid argument to the %s rule. Expecting a string of the form key[,option]+, got %s", r.Name(), item)
+			panic(fmt.Sprintf("Invalid argument to the %s rule. Expecting a string of the form key[,option]+, got %s", r.Name(), item))
 		}
 		key := strings.TrimSpace(parts[0])
 		for i := 1; i < len(parts); i++ {
@@ -43,20 +40,20 @@ func (r *StructTagRule) Configure(arguments lint.Arguments) error {
 			r.userDefined[key] = append(r.userDefined[key], option)
 		}
 	}
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *StructTagRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *StructTagRule) Apply(file *lint.File, args lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(args) })
+
 	var failures []lint.Failure
 	onFailure := func(failure lint.Failure) {
 		failures = append(failures, failure)
 	}
 
 	w := lintStructTagRule{
-		onFailure:      onFailure,
-		userDefined:    r.userDefined,
-		isAtLeastGo124: file.Pkg.IsAtLeastGo124(),
+		onFailure:   onFailure,
+		userDefined: r.userDefined,
 	}
 
 	ast.Walk(w, file.AST)
@@ -70,11 +67,10 @@ func (*StructTagRule) Name() string {
 }
 
 type lintStructTagRule struct {
-	onFailure      func(lint.Failure)
-	userDefined    map[string][]string // map: key -> []option
-	usedTagNbr     map[int]bool        // list of used tag numbers
-	usedTagName    map[string]bool     // list of used tag keys
-	isAtLeastGo124 bool
+	onFailure   func(lint.Failure)
+	userDefined map[string][]string // map: key -> []option
+	usedTagNbr  map[int]bool        // list of used tag numbers
+	usedTagName map[string]bool     // list of used tag keys
 }
 
 func (w lintStructTagRule) Visit(node ast.Node) ast.Visitor {
@@ -97,16 +93,14 @@ func (w lintStructTagRule) Visit(node ast.Node) ast.Visitor {
 	return w
 }
 
-const (
-	keyASN1     = "asn1"
-	keyBSON     = "bson"
-	keyDefault  = "default"
-	keyJSON     = "json"
-	keyProtobuf = "protobuf"
-	keyRequired = "required"
-	keyXML      = "xml"
-	keyYAML     = "yaml"
-)
+const keyASN1 = "asn1"
+const keyBSON = "bson"
+const keyDefault = "default"
+const keyJSON = "json"
+const keyProtobuf = "protobuf"
+const keyRequired = "required"
+const keyXML = "xml"
+const keyYAML = "yaml"
 
 func (w lintStructTagRule) checkTagNameIfNeed(tag *structtag.Tag) (string, bool) {
 	isUnnamedTag := tag.Name == "" || tag.Name == "-"
@@ -114,9 +108,13 @@ func (w lintStructTagRule) checkTagNameIfNeed(tag *structtag.Tag) (string, bool)
 		return "", true
 	}
 
-	switch tag.Key {
-	case keyBSON, keyJSON, keyXML, keyYAML, keyProtobuf:
-	default:
+	needsToCheckTagName := tag.Key == keyBSON ||
+		tag.Key == keyJSON ||
+		tag.Key == keyXML ||
+		tag.Key == keyYAML ||
+		tag.Key == keyProtobuf
+
+	if !needsToCheckTagName {
 		return "", true
 	}
 
@@ -141,8 +139,8 @@ func (lintStructTagRule) getTagName(tag *structtag.Tag) string {
 	switch tag.Key {
 	case keyProtobuf:
 		for _, option := range tag.Options {
-			if tagName, found := strings.CutPrefix(option, "name="); found {
-				return tagName
+			if strings.HasPrefix(option, "name=") {
+				return strings.TrimPrefix(option, "name=")
 			}
 		}
 		return "" // protobuf tag lacks 'name' option
@@ -283,11 +281,6 @@ func (w lintStructTagRule) checkJSONTag(name string, options []string) (string, 
 			if name != "-" {
 				return "option can not be empty in JSON tag", false
 			}
-		case "omitzero":
-			if w.isAtLeastGo124 {
-				continue
-			}
-			fallthrough
 		default:
 			if w.isUserDefined(keyJSON, opt) {
 				continue

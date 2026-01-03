@@ -37,7 +37,6 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 )
 
@@ -46,9 +45,6 @@ const jsonMediaType = "application/json"
 func TestByProducts(t *testing.T) {
 	resultValue := v1.ResultValue{Type: "string", StringVal: "result-value"}
 	tr := &v1.TaskRun{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "taskRun-name",
-		},
 		Status: v1.TaskRunStatus{
 			TaskRunStatusFields: v1.TaskRunStatusFields{
 				Results: []v1.TaskRunResult{
@@ -67,7 +63,7 @@ func TestByProducts(t *testing.T) {
 	}
 	want := []*intoto.ResourceDescriptor{
 		{
-			Name:      "taskRunResults/taskRun-name/result-name",
+			Name:      "taskRunResults/result-name",
 			Content:   resultBytes,
 			MediaType: jsonMediaType,
 		},
@@ -83,7 +79,7 @@ func TestByProducts(t *testing.T) {
 
 func TestTaskRunGenerateAttestation(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
-	tr, err := objectloader.TaskRunV1FromFile("../../../testdata/slsa-v2alpha4/taskrun1.json")
+	tr, err := objectloader.TaskRunFromFile("../../../testdata/slsa-v2alpha4/taskrun1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,12 +134,12 @@ func TestTaskRunGenerateAttestation(t *testing.T) {
 			},
 			Byproducts: []*intoto.ResourceDescriptor{
 				{
-					Name:      "stepResults/taskrun-build/step1_result1",
+					Name:      "stepResults/step1_result1",
 					MediaType: "application/json",
 					Content:   []uint8(`"result-value"`),
 				},
 				{
-					Name:      "stepResults/taskrun-build/step1_result1-ARTIFACT_OUTPUTS",
+					Name:      "stepResults/step1_result1-ARTIFACT_OUTPUTS",
 					MediaType: "application/json",
 					Content:   []uint8(`{"digest":"sha256:827521c857fdcd4374f4da5442fbae2edb01e7fbae285c3ec15673d4c1daecb7","uri":"gcr.io/my/image/fromstep2"}`),
 				},

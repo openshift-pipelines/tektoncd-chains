@@ -12,10 +12,6 @@ A linter that handle directives into `go.mod`.
 Recommended.
 
 ```yml
-linters:
-  enable:
-    - gomoddirectives
-
 linters-settings:
   gomoddirectives:
     # Allow local `replace` directives.
