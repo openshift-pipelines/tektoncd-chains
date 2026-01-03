@@ -2,7 +2,6 @@ package config
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,17 +9,13 @@ import (
 	"strings"
 
 	hcversion "github.com/hashicorp/go-version"
-	"github.com/ldez/grignotin/goenv"
 	"github.com/ldez/grignotin/gomod"
 	"golang.org/x/mod/modfile"
 )
 
 // Config encapsulates the config data specified in the golangci-lint YAML config file.
 type Config struct {
-	cfgDir   string // Path to the directory containing golangci-lint config file.
-	basePath string // Path the root directory related to [Run.RelativePathMode].
-
-	Version string `mapstructure:"version"` // From v2, to be able to detect v2 config file.
+	cfgDir string // The directory containing the golangci-lint config file.
 
 	Run Run `mapstructure:"run"`
 
@@ -35,13 +30,9 @@ type Config struct {
 	InternalTest    bool // Option is used only for testing golangci-lint code, don't use it
 }
 
-// GetConfigDir returns the directory that contains golangci-lint config file.
+// GetConfigDir returns the directory that contains golangci config file.
 func (c *Config) GetConfigDir() string {
 	return c.cfgDir
-}
-
-func (c *Config) GetBasePath() string {
-	return c.basePath
 }
 
 func (c *Config) Validate() error {
@@ -88,58 +79,44 @@ func IsGoGreaterThanOrEqual(current, limit string) bool {
 	return v1.GreaterThanOrEqual(l)
 }
 
-func detectGoVersion(ctx context.Context) string {
-	return cmp.Or(detectGoVersionFromGoMod(ctx), "1.17")
+func detectGoVersion() string {
+	goVersion := detectGoVersionFromGoMod()
+	if goVersion != "" {
+		return goVersion
+	}
+
+	return cmp.Or(os.Getenv("GOVERSION"), "1.17")
 }
 
 // detectGoVersionFromGoMod tries to get Go version from go.mod.
 // It returns `toolchain` version if present,
 // else it returns `go` version if present,
-// else it returns `GOVERSION` version if present,
 // else it returns empty.
-func detectGoVersionFromGoMod(ctx context.Context) string {
-	values, err := goenv.Get(ctx, goenv.GOMOD, goenv.GOVERSION)
+func detectGoVersionFromGoMod() string {
+	modPath, err := gomod.GetGoModPath()
 	if err != nil {
-		values = map[string]string{
-			goenv.GOMOD: detectGoModFallback(ctx),
+		modPath = detectGoModFallback()
+		if modPath == "" {
+			return ""
 		}
 	}
 
-	if values[goenv.GOMOD] == "" {
-		return parseGoVersion(values[goenv.GOVERSION])
-	}
-
-	file, err := parseGoMod(values[goenv.GOMOD])
+	file, err := parseGoMod(modPath)
 	if err != nil {
-		return parseGoVersion(values[goenv.GOVERSION])
+		return ""
 	}
 
 	// The toolchain exists only if 'toolchain' version > 'go' version.
 	// If 'toolchain' version <= 'go' version, `go mod tidy` will remove 'toolchain' version from go.mod.
 	if file.Toolchain != nil && file.Toolchain.Name != "" {
-		return parseGoVersion(file.Toolchain.Name)
+		return strings.TrimPrefix(file.Toolchain.Name, "go")
 	}
 
 	if file.Go != nil && file.Go.Version != "" {
 		return file.Go.Version
 	}
 
-	return parseGoVersion(values[goenv.GOVERSION])
-}
-
-func parseGoVersion(v string) string {
-	raw := strings.TrimPrefix(v, "go")
-
-	// prerelease version (ex: go1.24rc1)
-	idx := strings.IndexFunc(raw, func(r rune) bool {
-		return (r < '0' || r > '9') && r != '.'
-	})
-
-	if idx != -1 {
-		raw = raw[:idx]
-	}
-
-	return raw
+	return ""
 }
 
 func parseGoMod(goMod string) (*modfile.File, error) {
@@ -151,8 +128,8 @@ func parseGoMod(goMod string) (*modfile.File, error) {
 	return modfile.Parse("go.mod", raw, nil)
 }
 
-func detectGoModFallback(ctx context.Context) string {
-	info, err := gomod.GetModuleInfo(ctx)
+func detectGoModFallback() string {
+	info, err := gomod.GetModuleInfo()
 	if err != nil {
 		return ""
 	}

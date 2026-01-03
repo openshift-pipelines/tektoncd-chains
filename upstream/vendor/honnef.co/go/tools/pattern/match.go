@@ -692,8 +692,7 @@ func (texpr TrulyConstantExpression) Match(m *Matcher, node interface{}) (interf
 
 var (
 	// Types of fields in go/ast structs that we want to skip
-	rtTokPos = reflect.TypeOf(token.Pos(0))
-	//lint:ignore SA1019 It's deprecated, but we still want to skip the field.
+	rtTokPos       = reflect.TypeOf(token.Pos(0))
 	rtObject       = reflect.TypeOf((*ast.Object)(nil))
 	rtCommentGroup = reflect.TypeOf((*ast.CommentGroup)(nil))
 )

@@ -11,6 +11,14 @@ text editor.
 
 1. Apply release Tekton resources
 
+   - [`publish-chains-release`](release-pipeline.yaml) - This task uses
+     [ko](https://github.com/google/ko) to build all container images we release
+     and generate the `release.yaml`
+
+     ```sh
+     kubectl apply -f release/publish.yaml
+     ```
+
    - [`chains-release`](release-pipeline.yaml) - This is the pipeline that
      stitches everything together.
 

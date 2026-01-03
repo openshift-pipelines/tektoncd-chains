@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"strings"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
@@ -11,31 +12,23 @@ import (
 // BannedCharsRule checks if a file contains banned characters.
 type BannedCharsRule struct {
 	bannedCharList []string
+
+	configureOnce sync.Once
 }
 
 const bannedCharsRuleName = "banned-characters"
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *BannedCharsRule) Configure(arguments lint.Arguments) error {
+func (r *BannedCharsRule) configure(arguments lint.Arguments) {
 	if len(arguments) > 0 {
-		err := checkNumberOfArguments(1, arguments, bannedCharsRuleName)
-		if err != nil {
-			return err
-		}
-		list, err := r.getBannedCharsList(arguments)
-		if err != nil {
-			return err
-		}
-
-		r.bannedCharList = list
+		checkNumberOfArguments(1, arguments, bannedCharsRuleName)
+		r.bannedCharList = r.getBannedCharsList(arguments)
 	}
-	return nil
 }
 
 // Apply applied the rule to the given file.
-func (r *BannedCharsRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *BannedCharsRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	var failures []lint.Failure
 	onFailure := func(failure lint.Failure) {
 		failures = append(failures, failure)
@@ -56,17 +49,17 @@ func (*BannedCharsRule) Name() string {
 }
 
 // getBannedCharsList converts arguments into the banned characters list
-func (r *BannedCharsRule) getBannedCharsList(args lint.Arguments) ([]string, error) {
+func (r *BannedCharsRule) getBannedCharsList(args lint.Arguments) []string {
 	var bannedChars []string
 	for _, char := range args {
 		charStr, ok := char.(string)
 		if !ok {
-			return nil, fmt.Errorf("invalid argument for the %s rule: expecting a string, got %T", r.Name(), char)
+			panic(fmt.Sprintf("Invalid argument for the %s rule: expecting a string, got %T", r.Name(), char))
 		}
 		bannedChars = append(bannedChars, charStr)
 	}
 
-	return bannedChars, nil
+	return bannedChars
 }
 
 type lintBannedCharsRule struct {
