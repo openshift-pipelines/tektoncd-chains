@@ -10,6 +10,15 @@ cascade:
 ---
 -->
 
+> ℹ️ **Important**
+>
+> **Migrate Images from *gcr.io* to *ghcr.io*.**
+>
+> To reduce costs, we've migrated all our new and old Tekton releases to the free tier on [ghcr.io/tektoncd](https://github.com/orgs/tektoncd/packages?repo_name=dashboard). <br />
+> Read more [here](https://tekton.dev/blog/2025/04/03/migration-to-github-container-registry/).
+
+---
+
 # Tekton Chains
 
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/6408/badge)](https://bestpractices.coreinfrastructure.org/projects/6408)
@@ -25,16 +34,16 @@ Supply Chain Security in Tekton Pipelines
 Tekton Chains is a Kubernetes Custom Resource Definition (CRD) controller that
 allows you to manage your supply chain security in Tekton.
 
-In its default mode of operation, Chains works by observing all `TaskRuns`
-executions in your cluster. When `TaskRuns` complete, Chains takes a snapshot of
+In its default mode of operation, Chains works by observing all `TaskRuns` and `PipelineRuns`
+executions in your cluster. When they complete, Chains takes a snapshot of
 them. Chains then converts this snapshot to one or more standard payload
 formats, signs them and stores them somewhere.
 
 Current features include:
 
-- Signing `TaskRun` results with user provided cryptographic keys, including
-  `TaskRun`s themselves and OCI Images
-- Attestation formats like [intoto](docs/intoto.md)
+- Signing `TaskRun` and `PipelineRun` results with user provided cryptographic keys,
+  including the `TaskRun` or `PipelineRun` themselves and OCI Images
+- Attestation formats like [slsa/v1](docs/slsa-provenance.md#how-to-configure-tekton-chains)
 - Signing with a variety of cryptographic key types and services (x509, KMS)
 - Support for multiple storage backends for signatures
 
