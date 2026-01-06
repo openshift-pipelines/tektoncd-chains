@@ -3,17 +3,22 @@ package rule
 import (
 	"fmt"
 	"go/ast"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
 
-// DotImportsRule forbids . imports.
+// DotImportsRule lints given else constructs.
 type DotImportsRule struct {
 	allowedPackages allowPackages
+
+	configureOnce sync.Once
 }
 
 // Apply applies the rule to given file.
-func (r *DotImportsRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *DotImportsRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	var failures []lint.Failure
 
 	fileAst := file.AST
@@ -36,34 +41,30 @@ func (*DotImportsRule) Name() string {
 	return "dot-imports"
 }
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *DotImportsRule) Configure(arguments lint.Arguments) error {
-	r.allowedPackages = allowPackages{}
+func (r *DotImportsRule) configure(arguments lint.Arguments) {
+	r.allowedPackages = make(allowPackages)
 	if len(arguments) == 0 {
-		return nil
+		return
 	}
 
 	args, ok := arguments[0].(map[string]any)
 	if !ok {
-		return fmt.Errorf("invalid argument to the dot-imports rule. Expecting a k,v map, got %T", arguments[0])
+		panic(fmt.Sprintf("Invalid argument to the dot-imports rule. Expecting a k,v map, got %T", arguments[0]))
 	}
 
 	if allowedPkgArg, ok := args["allowedPackages"]; ok {
 		pkgs, ok := allowedPkgArg.([]any)
 		if !ok {
-			return fmt.Errorf("invalid argument to the dot-imports rule, []string expected. Got '%v' (%T)", allowedPkgArg, allowedPkgArg)
+			panic(fmt.Sprintf("Invalid argument to the dot-imports rule, []string expected. Got '%v' (%T)", allowedPkgArg, allowedPkgArg))
 		}
 		for _, p := range pkgs {
 			pkg, ok := p.(string)
 			if !ok {
-				return fmt.Errorf("invalid argument to the dot-imports rule, string expected. Got '%v' (%T)", p, p)
+				panic(fmt.Sprintf("Invalid argument to the dot-imports rule, string expected. Got '%v' (%T)", p, p))
 			}
 			r.allowedPackages.add(pkg)
 		}
 	}
-	return nil
 }
 
 type lintImports struct {
@@ -81,7 +82,7 @@ func (w lintImports) Visit(_ ast.Node) ast.Visitor {
 				Confidence: 1,
 				Failure:    "should not use dot imports",
 				Node:       importSpec,
-				Category:   lint.FailureCategoryImports,
+				Category:   "imports",
 			})
 		}
 	}

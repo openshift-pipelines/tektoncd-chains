@@ -15,7 +15,6 @@
 package analyzers
 
 import (
-	"cmp"
 	"fmt"
 	"go/token"
 	"math"
@@ -23,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/exp/constraints"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/buildssa"
 	"golang.org/x/tools/go/ssa"
@@ -49,7 +49,7 @@ type rangeResult struct {
 type branchResults struct {
 	minValue             *int
 	maxValue             *uint
-	explicitPositiveVals []uint
+	explixitPositiveVals []uint
 	explicitNegativeVals []int
 	convertFound         bool
 }
@@ -141,8 +141,8 @@ func parseIntType(intType string) (integer, error) {
 		return integer{}, fmt.Errorf("invalid bit size: %d", intSize)
 	}
 
-	var minVal int
-	var maxVal uint
+	var min int
+	var max uint
 
 	if signed {
 		shiftAmount := intSize - 1
@@ -152,19 +152,19 @@ func parseIntType(intType string) (integer, error) {
 			return integer{}, fmt.Errorf("invalid shift amount: %d", shiftAmount)
 		}
 
-		maxVal = (1 << uint(shiftAmount)) - 1
-		minVal = -1 << (intSize - 1)
+		max = (1 << uint(shiftAmount)) - 1
+		min = -1 << (intSize - 1)
 
 	} else {
-		maxVal = (1 << uint(intSize)) - 1
-		minVal = 0
+		max = (1 << uint(intSize)) - 1
+		min = 0
 	}
 
 	return integer{
 		signed: signed,
 		size:   intSize,
-		min:    minVal,
-		max:    maxVal,
+		min:    min,
+		max:    max,
 	}, nil
 }
 
@@ -226,12 +226,7 @@ func isStringToIntConversion(instr *ssa.Convert, dstType string) bool {
 						if err != nil {
 							return false
 						}
-
-						// we're good if:
-						// - signs match and bit size is <= than destination
-						// - parsing unsigned and bit size is < than destination
-						isSafe := (bitSizeValue <= dstInt.size && signed == dstInt.signed) ||
-							(bitSizeValue < dstInt.size && !signed)
+						isSafe := bitSizeValue <= dstInt.size && signed == dstInt.signed
 						return isSafe
 					}
 				}
@@ -274,8 +269,8 @@ func hasExplicitRangeCheck(instr *ssa.Convert, dstType string) bool {
 			case *ssa.If:
 				result := getResultRange(v, instr, visitedIfs)
 				if result.isRangeCheck {
-					minValue = max(minValue, result.minValue)
-					maxValue = min(maxValue, result.maxValue)
+					minValue = max(minValue, &result.minValue)
+					maxValue = min(maxValue, &result.maxValue)
 					explicitPositiveVals = append(explicitPositiveVals, result.explicitPositiveVals...)
 					explicitNegativeVals = append(explicitNegativeVals, result.explicitNegativeVals...)
 				}
@@ -328,17 +323,17 @@ func getResultRange(ifInstr *ssa.If, instr *ssa.Convert, visitedIfs map[*ssa.If]
 
 	if thenBounds.convertFound {
 		result.convertFound = true
-		result.minValue = maxWithPtr(result.minValue, thenBounds.minValue)
-		result.maxValue = minWithPtr(result.maxValue, thenBounds.maxValue)
+		result.minValue = max(result.minValue, thenBounds.minValue)
+		result.maxValue = min(result.maxValue, thenBounds.maxValue)
 	} else if elseBounds.convertFound {
 		result.convertFound = true
-		result.minValue = maxWithPtr(result.minValue, elseBounds.minValue)
-		result.maxValue = minWithPtr(result.maxValue, elseBounds.maxValue)
+		result.minValue = max(result.minValue, elseBounds.minValue)
+		result.maxValue = min(result.maxValue, elseBounds.maxValue)
 	}
 
-	result.explicitPositiveVals = append(result.explicitPositiveVals, thenBounds.explicitPositiveVals...)
+	result.explicitPositiveVals = append(result.explicitPositiveVals, thenBounds.explixitPositiveVals...)
 	result.explicitNegativeVals = append(result.explicitNegativeVals, thenBounds.explicitNegativeVals...)
-	result.explicitPositiveVals = append(result.explicitPositiveVals, elseBounds.explicitPositiveVals...)
+	result.explicitPositiveVals = append(result.explicitPositiveVals, elseBounds.explixitPositiveVals...)
 	result.explicitNegativeVals = append(result.explicitNegativeVals, elseBounds.explicitNegativeVals...)
 
 	return result
@@ -388,14 +383,14 @@ func updateResultFromBinOp(result *rangeResult, binOp *ssa.BinOp, instr *ssa.Con
 	}
 
 	if op == "neg" {
-		minVal := result.minValue
-		maxVal := result.maxValue
+		min := result.minValue
+		max := result.maxValue
 
-		if minVal >= 0 {
-			result.maxValue = uint(minVal)
+		if min >= 0 {
+			result.maxValue = uint(min)
 		}
-		if maxVal <= math.MaxInt {
-			result.minValue = int(maxVal)
+		if max <= math.MaxInt {
+			result.minValue = int(max)
 		}
 	}
 }
@@ -449,9 +444,9 @@ func walkBranchForConvert(block *ssa.BasicBlock, instr *ssa.Convert, visitedIfs 
 			bounds.convertFound = bounds.convertFound || result.convertFound
 
 			if result.isRangeCheck {
-				bounds.minValue = toPtr(maxWithPtr(result.minValue, bounds.minValue))
-				bounds.maxValue = toPtr(minWithPtr(result.maxValue, bounds.maxValue))
-				bounds.explicitPositiveVals = append(bounds.explicitPositiveVals, result.explicitPositiveVals...)
+				bounds.minValue = toPtr(max(result.minValue, bounds.minValue))
+				bounds.maxValue = toPtr(min(result.maxValue, bounds.maxValue))
+				bounds.explixitPositiveVals = append(bounds.explixitPositiveVals, result.explicitPositiveVals...)
 				bounds.explicitNegativeVals = append(bounds.explicitNegativeVals, result.explicitNegativeVals...)
 			}
 		case *ssa.Call:
@@ -540,18 +535,24 @@ func explicitValsInRange(explicitPosVals []uint, explicitNegVals []int, dstInt i
 	return true
 }
 
-func minWithPtr[T cmp.Ordered](a T, b *T) T {
+func min[T constraints.Integer](a T, b *T) T {
 	if b == nil {
 		return a
 	}
-	return min(a, *b)
+	if a < *b {
+		return a
+	}
+	return *b
 }
 
-func maxWithPtr[T cmp.Ordered](a T, b *T) T {
+func max[T constraints.Integer](a T, b *T) T {
 	if b == nil {
 		return a
 	}
-	return max(a, *b)
+	if a > *b {
+		return a
+	}
+	return *b
 }
 
 func toPtr[T any](a T) *T {

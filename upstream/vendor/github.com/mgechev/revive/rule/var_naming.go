@@ -6,48 +6,33 @@ import (
 	"go/token"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
 
 var anyCapsRE = regexp.MustCompile(`[A-Z]`)
 
-var allCapsRE = regexp.MustCompile(`^[A-Z0-9_]+$`)
-
 // regexp for constant names like `SOME_CONST`, `SOME_CONST_2`, `X123_3`, `_SOME_PRIVATE_CONST` (#851, #865)
 var upperCaseConstRE = regexp.MustCompile(`^_?[A-Z][A-Z\d]*(_[A-Z\d]+)*$`)
 
-var knownNameExceptions = map[string]bool{
-	"LastInsertId": true, // must match database/sql
-	"kWh":          true,
-}
-
-// VarNamingRule lints the name of a variable.
+// VarNamingRule lints given else constructs.
 type VarNamingRule struct {
 	allowList             []string
 	blockList             []string
 	allowUpperCaseConst   bool // if true - allows to use UPPER_SOME_NAMES for constants
 	skipPackageNameChecks bool
+
+	configureOnce sync.Once
 }
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *VarNamingRule) Configure(arguments lint.Arguments) error {
+func (r *VarNamingRule) configure(arguments lint.Arguments) {
 	if len(arguments) >= 1 {
-		list, err := getList(arguments[0], "allowlist")
-		if err != nil {
-			return err
-		}
-		r.allowList = list
+		r.allowList = getList(arguments[0], "allowlist")
 	}
 
 	if len(arguments) >= 2 {
-		list, err := getList(arguments[1], "blocklist")
-		if err != nil {
-			return err
-		}
-		r.blockList = list
+		r.blockList = getList(arguments[1], "blocklist")
 	}
 
 	if len(arguments) >= 3 {
@@ -55,29 +40,28 @@ func (r *VarNamingRule) Configure(arguments lint.Arguments) error {
 		thirdArgument := arguments[2]
 		asSlice, ok := thirdArgument.([]any)
 		if !ok {
-			return fmt.Errorf("invalid third argument to the var-naming rule. Expecting a %s of type slice, got %T", "options", arguments[2])
+			panic(fmt.Sprintf("Invalid third argument to the var-naming rule. Expecting a %s of type slice, got %T", "options", arguments[2]))
 		}
 		if len(asSlice) != 1 {
-			return fmt.Errorf("invalid third argument to the var-naming rule. Expecting a %s of type slice, of len==1, but %d", "options", len(asSlice))
+			panic(fmt.Sprintf("Invalid third argument to the var-naming rule. Expecting a %s of type slice, of len==1, but %d", "options", len(asSlice)))
 		}
 		args, ok := asSlice[0].(map[string]any)
 		if !ok {
-			return fmt.Errorf("invalid third argument to the var-naming rule. Expecting a %s of type slice, of len==1, with map, but %T", "options", asSlice[0])
+			panic(fmt.Sprintf("Invalid third argument to the var-naming rule. Expecting a %s of type slice, of len==1, with map, but %T", "options", asSlice[0]))
 		}
 		r.allowUpperCaseConst = fmt.Sprint(args["upperCaseConst"]) == "true"
 		r.skipPackageNameChecks = fmt.Sprint(args["skipPackageNameChecks"]) == "true"
 	}
-	return nil
 }
 
-func (*VarNamingRule) applyPackageCheckRules(walker *lintNames) {
+func (r *VarNamingRule) applyPackageCheckRules(walker *lintNames) {
 	// Package names need slightly different handling than other names.
 	if strings.Contains(walker.fileAst.Name.Name, "_") && !strings.HasSuffix(walker.fileAst.Name.Name, "_test") {
 		walker.onFailure(lint.Failure{
 			Failure:    "don't use an underscore in package name",
 			Confidence: 1,
 			Node:       walker.fileAst.Name,
-			Category:   lint.FailureCategoryNaming,
+			Category:   "naming",
 		})
 	}
 	if anyCapsRE.MatchString(walker.fileAst.Name.Name) {
@@ -85,13 +69,15 @@ func (*VarNamingRule) applyPackageCheckRules(walker *lintNames) {
 			Failure:    fmt.Sprintf("don't use MixedCaps in package name; %s should be %s", walker.fileAst.Name.Name, strings.ToLower(walker.fileAst.Name.Name)),
 			Confidence: 1,
 			Node:       walker.fileAst.Name,
-			Category:   lint.FailureCategoryNaming,
+			Category:   "naming",
 		})
 	}
 }
 
 // Apply applies the rule to given file.
-func (r *VarNamingRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *VarNamingRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	var failures []lint.Failure
 
 	fileAst := file.AST
@@ -152,7 +138,7 @@ func (w *lintNames) check(id *ast.Ident, thing string) {
 			Failure:    "don't use ALL_CAPS in Go names; use CamelCase",
 			Confidence: 0.8,
 			Node:       id,
-			Category:   lint.FailureCategoryNaming,
+			Category:   "naming",
 		})
 		return
 	}
@@ -167,7 +153,7 @@ func (w *lintNames) check(id *ast.Ident, thing string) {
 			Failure:    fmt.Sprintf("don't use underscores in Go names; %s %s should be %s", thing, id.Name, should),
 			Confidence: 0.9,
 			Node:       id,
-			Category:   lint.FailureCategoryNaming,
+			Category:   "naming",
 		})
 		return
 	}
@@ -175,7 +161,7 @@ func (w *lintNames) check(id *ast.Ident, thing string) {
 		Failure:    fmt.Sprintf("%s %s should be %s", thing, id.Name, should),
 		Confidence: 0.8,
 		Node:       id,
-		Category:   lint.FailureCategoryNaming,
+		Category:   "naming",
 	})
 }
 
@@ -270,18 +256,18 @@ func (w *lintNames) Visit(n ast.Node) ast.Visitor {
 	return w
 }
 
-func getList(arg any, argName string) ([]string, error) {
+func getList(arg any, argName string) []string {
 	args, ok := arg.([]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid argument to the var-naming rule. Expecting a %s of type slice with initialisms, got %T", argName, arg)
+		panic(fmt.Sprintf("Invalid argument to the var-naming rule. Expecting a %s of type slice with initialisms, got %T", argName, arg))
 	}
 	var list []string
 	for _, v := range args {
 		val, ok := v.(string)
 		if !ok {
-			return nil, fmt.Errorf("invalid %s values of the var-naming rule. Expecting slice of strings but got element of type %T", val, arg)
+			panic(fmt.Sprintf("Invalid %s values of the var-naming rule. Expecting slice of strings but got element of type %T", val, arg))
 		}
 		list = append(list, val)
 	}
-	return list, nil
+	return list
 }

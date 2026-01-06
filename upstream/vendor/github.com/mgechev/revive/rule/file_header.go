@@ -3,13 +3,16 @@ package rule
 import (
 	"fmt"
 	"regexp"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
 
-// FileHeaderRule lints the header that each file should have.
+// FileHeaderRule lints given else constructs.
 type FileHeaderRule struct {
 	header string
+
+	configureOnce sync.Once
 }
 
 var (
@@ -17,24 +20,22 @@ var (
 	singleRegexp = regexp.MustCompile("^//")
 )
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *FileHeaderRule) Configure(arguments lint.Arguments) error {
+func (r *FileHeaderRule) configure(arguments lint.Arguments) {
 	if len(arguments) < 1 {
-		return nil
+		return
 	}
 
 	var ok bool
 	r.header, ok = arguments[0].(string)
 	if !ok {
-		return fmt.Errorf(`invalid argument for "file-header" rule: argument should be a string, got %T`, arguments[0])
+		panic(fmt.Sprintf("invalid argument for \"file-header\" rule: argument should be a string, got %T", arguments[0]))
 	}
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *FileHeaderRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *FileHeaderRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	if r.header == "" {
 		return nil
 	}
@@ -68,7 +69,7 @@ func (r *FileHeaderRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure
 
 	regex, err := regexp.Compile(r.header)
 	if err != nil {
-		return newInternalFailureError(err)
+		panic(err.Error())
 	}
 
 	if !regex.MatchString(comment) {

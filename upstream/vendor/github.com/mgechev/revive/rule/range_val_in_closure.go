@@ -7,7 +7,7 @@ import (
 	"github.com/mgechev/revive/lint"
 )
 
-// RangeValInClosureRule warns if range value is used in a closure dispatched as goroutine.
+// RangeValInClosureRule lints given else constructs.
 type RangeValInClosureRule struct{}
 
 // Apply applies the rule to given file.

@@ -2,19 +2,13 @@ package goimports
 
 import (
 	"golang.org/x/tools/imports"
-
-	"github.com/golangci/golangci-lint/pkg/config"
 )
 
 const Name = "goimports"
 
 type Formatter struct{}
 
-func New(settings *config.GoImportsSettings) *Formatter {
-	if settings != nil {
-		imports.LocalPrefix = settings.LocalPrefixes
-	}
-
+func New() *Formatter {
 	return &Formatter{}
 }
 

@@ -1,62 +1,50 @@
 package rule
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
 
-// ArgumentsLimitRule lints the number of arguments a function can receive.
+// ArgumentsLimitRule lints given else constructs.
 type ArgumentsLimitRule struct {
 	max int
+
+	configureOnce sync.Once
 }
 
 const defaultArgumentsLimit = 8
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *ArgumentsLimitRule) Configure(arguments lint.Arguments) error {
+func (r *ArgumentsLimitRule) configure(arguments lint.Arguments) {
 	if len(arguments) < 1 {
 		r.max = defaultArgumentsLimit
-		return nil
+		return
 	}
 
 	maxArguments, ok := arguments[0].(int64) // Alt. non panicking version
 	if !ok {
-		return errors.New(`invalid value passed as argument number to the "argument-limit" rule`)
+		panic(`invalid value passed as argument number to the "argument-limit" rule`)
 	}
 	r.max = int(maxArguments)
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *ArgumentsLimitRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *ArgumentsLimitRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	var failures []lint.Failure
-
-	for _, decl := range file.AST.Decls {
-		funcDecl, ok := decl.(*ast.FuncDecl)
-		if !ok {
-			continue
-		}
-
-		numParams := 0
-		for _, l := range funcDecl.Type.Params.List {
-			numParams += len(l.Names)
-		}
-
-		if numParams <= r.max {
-			continue
-		}
-
-		failures = append(failures, lint.Failure{
-			Confidence: 1,
-			Failure:    fmt.Sprintf("maximum number of arguments per function exceeded; max %d but got %d", r.max, numParams),
-			Node:       funcDecl.Type,
-		})
+	onFailure := func(failure lint.Failure) {
+		failures = append(failures, failure)
 	}
+
+	walker := lintArgsNum{
+		max:       r.max,
+		onFailure: onFailure,
+	}
+
+	ast.Walk(walker, file.AST)
 
 	return failures
 }
@@ -64,4 +52,33 @@ func (r *ArgumentsLimitRule) Apply(file *lint.File, _ lint.Arguments) []lint.Fai
 // Name returns the rule name.
 func (*ArgumentsLimitRule) Name() string {
 	return "argument-limit"
+}
+
+type lintArgsNum struct {
+	max       int
+	onFailure func(lint.Failure)
+}
+
+func (w lintArgsNum) Visit(n ast.Node) ast.Visitor {
+	node, ok := n.(*ast.FuncDecl)
+	if !ok {
+		return w
+	}
+
+	num := 0
+	for _, l := range node.Type.Params.List {
+		for range l.Names {
+			num++
+		}
+	}
+
+	if num > w.max {
+		w.onFailure(lint.Failure{
+			Confidence: 1,
+			Failure:    fmt.Sprintf("maximum number of arguments per function exceeded; max %d but got %d", w.max, num),
+			Node:       node.Type,
+		})
+	}
+
+	return nil // skip visiting the body of the function
 }
