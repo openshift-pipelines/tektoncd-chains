@@ -62,7 +62,7 @@ func (w lintCallToGC) Visit(node ast.Node) ast.Visitor {
 	w.onFailure(lint.Failure{
 		Confidence: 1,
 		Node:       node,
-		Category:   lint.FailureCategoryBadPractice,
+		Category:   "bad practice",
 		Failure:    "explicit call to the garbage collector",
 	})
 

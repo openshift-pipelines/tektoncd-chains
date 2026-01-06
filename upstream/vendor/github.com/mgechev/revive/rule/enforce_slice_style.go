@@ -3,6 +3,7 @@ package rule
 import (
 	"fmt"
 	"go/ast"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
@@ -43,32 +44,32 @@ func sliceStyleFromString(s string) (enforceSliceStyleType, error) {
 // EnforceSliceStyleRule implements a rule to enforce `make([]type)` over `[]type{}`.
 type EnforceSliceStyleRule struct {
 	enforceSliceStyle enforceSliceStyleType
+
+	configureOnce sync.Once
 }
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *EnforceSliceStyleRule) Configure(arguments lint.Arguments) error {
+func (r *EnforceSliceStyleRule) configure(arguments lint.Arguments) {
 	if len(arguments) < 1 {
 		r.enforceSliceStyle = enforceSliceStyleTypeAny
-		return nil
+		return
 	}
 
 	enforceSliceStyle, ok := arguments[0].(string)
 	if !ok {
-		return fmt.Errorf("invalid argument '%v' for 'enforce-slice-style' rule. Expecting string, got %T", arguments[0], arguments[0])
+		panic(fmt.Sprintf("Invalid argument '%v' for 'enforce-slice-style' rule. Expecting string, got %T", arguments[0], arguments[0]))
 	}
 
 	var err error
 	r.enforceSliceStyle, err = sliceStyleFromString(enforceSliceStyle)
 	if err != nil {
-		return fmt.Errorf("invalid argument to the enforce-slice-style rule: %w", err)
+		panic(fmt.Sprintf("Invalid argument to the enforce-slice-style rule: %v", err))
 	}
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *EnforceSliceStyleRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *EnforceSliceStyleRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	if r.enforceSliceStyle == enforceSliceStyleTypeAny {
 		// this linter is not configured
 		return nil
@@ -105,7 +106,7 @@ func (r *EnforceSliceStyleRule) Apply(file *lint.File, _ lint.Arguments) []lint.
 			failures = append(failures, lint.Failure{
 				Confidence: 1,
 				Node:       v,
-				Category:   lint.FailureCategoryStyle,
+				Category:   "style",
 				Failure:    failureMessage,
 			})
 		case *ast.CallExpr:
@@ -165,7 +166,7 @@ func (r *EnforceSliceStyleRule) Apply(file *lint.File, _ lint.Arguments) []lint.
 			failures = append(failures, lint.Failure{
 				Confidence: 1,
 				Node:       v.Args[0],
-				Category:   lint.FailureCategoryStyle,
+				Category:   "style",
 				Failure:    failureMessage,
 			})
 		}

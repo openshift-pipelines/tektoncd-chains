@@ -9,7 +9,7 @@ import (
 	"github.com/mgechev/revive/lint"
 )
 
-// TimeNamingRule lints the name of a time variable.
+// TimeNamingRule lints given else constructs.
 type TimeNamingRule struct{}
 
 // Apply applies the rule to given file.
@@ -64,7 +64,7 @@ func (w *lintTimeNames) Visit(node ast.Node) ast.Visitor {
 			continue
 		}
 		w.onFailure(lint.Failure{
-			Category:   lint.FailureCategoryTime,
+			Category:   "time",
 			Confidence: 0.9,
 			Node:       v,
 			Failure:    fmt.Sprintf("var %s is of type %v; don't use unit-specific suffix %q", name.Name, origTyp, suffix),
