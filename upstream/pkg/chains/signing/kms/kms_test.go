@@ -49,13 +49,12 @@ func TestInValidVaultAddressConnectionRefused(t *testing.T) {
 	}
 }
 
-var expectedErrorMessage = "no kms provider found for key reference: : parsing input key resource id: expected format: [plugin name]://[key ref], got: "
-
 func TestValidVaultAddressConnectionWithoutPortAndScheme(t *testing.T) {
 	cfg := config.KMSSigner{}
 	cfg.Auth.Address = "abc.com"
 
 	_, err := NewSigner(context.Background(), cfg)
+	expectedErrorMessage := "no kms provider found for key reference: "
 	if err.Error() != expectedErrorMessage {
 		t.Errorf("Expected error message '%s', but got '%s'", expectedErrorMessage, err.Error())
 	}
@@ -66,6 +65,7 @@ func TestValidVaultAddressConnectionWithoutScheme(t *testing.T) {
 	cfg.Auth.Address = "abc.com:80"
 
 	_, err := NewSigner(context.Background(), cfg)
+	expectedErrorMessage := "no kms provider found for key reference: "
 	if err.Error() != expectedErrorMessage {
 		t.Errorf("Expected error message '%s', but got '%s'", expectedErrorMessage, err.Error())
 	}
@@ -82,6 +82,7 @@ func TestValidVaultAddressConnection(t *testing.T) {
 		cfg.Auth.Address = server.URL
 
 		_, err := NewSigner(context.Background(), cfg)
+		expectedErrorMessage := "no kms provider found for key reference: "
 		if err.Error() != expectedErrorMessage {
 			t.Errorf("Expected error message '%s', but got '%s'", expectedErrorMessage, err.Error())
 		}
@@ -97,6 +98,7 @@ func TestValidVaultAddressConnection(t *testing.T) {
 		cfg.Auth.Address = server.URL
 
 		_, err := NewSigner(context.Background(), cfg)
+		expectedErrorMessage := "no kms provider found for key reference: "
 		if err.Error() != expectedErrorMessage {
 			t.Errorf("Expected error message '%s', but got '%s'", expectedErrorMessage, err.Error())
 		}
@@ -120,6 +122,7 @@ func TestValidVaultAddressConnection(t *testing.T) {
 		cfg.Auth.Address = "http://127.0.0.1:41227"
 
 		_, err = NewSigner(context.Background(), cfg)
+		expectedErrorMessage := "no kms provider found for key reference: "
 		if err.Error() != expectedErrorMessage {
 			t.Errorf("Expected error message '%s', but got '%s'", expectedErrorMessage, err.Error())
 		}
