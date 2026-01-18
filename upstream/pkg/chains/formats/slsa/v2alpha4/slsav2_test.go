@@ -98,7 +98,7 @@ func TestCorrectPayloadType(t *testing.T) {
 func TestTaskRunCreatePayload1(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 
-	tr, err := objectloader.TaskRunFromFile("../testdata/slsa-v2alpha4/taskrun1.json")
+	tr, err := objectloader.TaskRunV1FromFile("../testdata/slsa-v2alpha4/taskrun1.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,12 +169,12 @@ func TestTaskRunCreatePayload1(t *testing.T) {
 			},
 			Byproducts: []*intoto.ResourceDescriptor{
 				{
-					Name:      "stepResults/step1_result1",
+					Name:      "stepResults/taskrun-build/step1_result1",
 					Content:   resultBytesStepResult,
 					MediaType: jsonMediaType,
 				},
 				{
-					Name:      "stepResults/step1_result1-ARTIFACT_OUTPUTS",
+					Name:      "stepResults/taskrun-build/step1_result1-ARTIFACT_OUTPUTS",
 					Content:   resultBytesStepResultObj,
 					MediaType: jsonMediaType,
 				},
@@ -212,7 +212,7 @@ func TestTaskRunCreatePayload1(t *testing.T) {
 
 func TestTaskRunCreatePayload2(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
-	tr, err := objectloader.TaskRunFromFile("../testdata/slsa-v2alpha4/taskrun2.json")
+	tr, err := objectloader.TaskRunV1FromFile("../testdata/slsa-v2alpha4/taskrun2.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,17 +282,17 @@ func TestTaskRunCreatePayload2(t *testing.T) {
 			},
 			Byproducts: []*intoto.ResourceDescriptor{
 				{
-					Name:      "taskRunResults/some-uri_DIGEST",
+					Name:      "taskRunResults/git-clone/some-uri_DIGEST",
 					Content:   resultBytesDigest,
 					MediaType: jsonMediaType,
 				},
 				{
-					Name:      "taskRunResults/some-uri",
+					Name:      "taskRunResults/git-clone/some-uri",
 					Content:   resultBytesURI,
 					MediaType: jsonMediaType,
 				},
 				{
-					Name:      "stepResults/step1_result1-ARTIFACT_INPUTS",
+					Name:      "stepResults/git-clone/step1_result1-ARTIFACT_INPUTS",
 					Content:   resultBytesObj,
 					MediaType: jsonMediaType,
 				},
@@ -321,7 +321,7 @@ func TestTaskRunCreatePayload2(t *testing.T) {
 func TestMultipleSubjects(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 
-	tr, err := objectloader.TaskRunFromFile("../testdata/slsa-v2alpha4/taskrun-multiple-subjects.json")
+	tr, err := objectloader.TaskRunV1FromFile("../testdata/slsa-v2alpha4/taskrun-multiple-subjects.json")
 	if err != nil {
 		t.Fatal(err)
 	}
