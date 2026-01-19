@@ -1,28 +1,28 @@
 package gomoddirectives
 
 import (
-	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/ldez/grignotin/goenv"
+	"github.com/ldez/grignotin/gomod"
 	"golang.org/x/mod/modfile"
 )
 
 // GetModuleFile gets module file.
+// It's better to use [GetGoModFile] instead of this function.
 func GetModuleFile() (*modfile.File, error) {
-	goMod, err := goenv.GetOne(context.Background(), goenv.GOMOD)
+	info, err := gomod.GetModuleInfo()
 	if err != nil {
 		return nil, err
 	}
 
-	mod, err := parseGoMod(goMod)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse go.mod (%s): %w", goMod, err)
+	if info[0].GoMod == "" {
+		return nil, errors.New("working directory is not part of a module")
 	}
 
-	return mod, nil
+	return parseGoMod(info[0].GoMod)
 }
 
 func parseGoMod(goMod string) (*modfile.File, error) {

@@ -1,48 +1,48 @@
 package rule
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/types"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
 
-// UnhandledErrorRule warns on unhandled errors returned by function calls.
+// UnhandledErrorRule lints given else constructs.
 type UnhandledErrorRule struct {
 	ignoreList []*regexp.Regexp
+
+	configureOnce sync.Once
 }
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *UnhandledErrorRule) Configure(arguments lint.Arguments) error {
+func (r *UnhandledErrorRule) configure(arguments lint.Arguments) {
 	for _, arg := range arguments {
 		argStr, ok := arg.(string)
 		if !ok {
-			return fmt.Errorf("invalid argument to the unhandled-error rule. Expecting a string, got %T", arg)
+			panic(fmt.Sprintf("Invalid argument to the unhandled-error rule. Expecting a string, got %T", arg))
 		}
 
 		argStr = strings.Trim(argStr, " ")
 		if argStr == "" {
-			return errors.New("invalid argument to the unhandled-error rule, expected regular expression must not be empty")
+			panic("Invalid argument to the unhandled-error rule, expected regular expression must not be empty.")
 		}
 
 		exp, err := regexp.Compile(argStr)
 		if err != nil {
-			return fmt.Errorf("invalid argument to the unhandled-error rule: regexp %q does not compile: %w", argStr, err)
+			panic(fmt.Sprintf("Invalid argument to the unhandled-error rule: regexp %q does not compile: %v", argStr, err))
 		}
 
 		r.ignoreList = append(r.ignoreList, exp)
 	}
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *UnhandledErrorRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *UnhandledErrorRule) Apply(file *lint.File, args lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(args) })
+
 	var failures []lint.Failure
 
 	walker := &lintUnhandledErrors{
@@ -113,7 +113,7 @@ func (w *lintUnhandledErrors) addFailure(n *ast.CallExpr) {
 	}
 
 	w.onFailure(lint.Failure{
-		Category:   lint.FailureCategoryBadPractice,
+		Category:   "bad practice",
 		Confidence: 1,
 		Node:       n,
 		Failure:    fmt.Sprintf("Unhandled error in call to function %v", name),
