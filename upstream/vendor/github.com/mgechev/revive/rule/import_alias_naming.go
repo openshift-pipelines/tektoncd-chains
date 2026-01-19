@@ -3,6 +3,7 @@ package rule
 import (
 	"fmt"
 	"regexp"
+	"sync"
 
 	"github.com/mgechev/revive/lint"
 )
@@ -11,57 +12,47 @@ import (
 type ImportAliasNamingRule struct {
 	allowRegexp *regexp.Regexp
 	denyRegexp  *regexp.Regexp
+
+	configureOnce sync.Once
 }
 
 const defaultImportAliasNamingAllowRule = "^[a-z][a-z0-9]{0,}$"
 
 var defaultImportAliasNamingAllowRegexp = regexp.MustCompile(defaultImportAliasNamingAllowRule)
 
-// Configure validates the rule configuration, and configures the rule accordingly.
-//
-// Configuration implements the [lint.ConfigurableRule] interface.
-func (r *ImportAliasNamingRule) Configure(arguments lint.Arguments) error {
+func (r *ImportAliasNamingRule) configure(arguments lint.Arguments) {
 	if len(arguments) == 0 {
 		r.allowRegexp = defaultImportAliasNamingAllowRegexp
-		return nil
+		return
 	}
 
 	switch namingRule := arguments[0].(type) {
 	case string:
-		err := r.setAllowRule(namingRule)
-		if err != nil {
-			return err
-		}
+		r.setAllowRule(namingRule)
 	case map[string]any: // expecting map[string]string
 		for k, v := range namingRule {
 			switch k {
 			case "allowRegex":
-				err := r.setAllowRule(v)
-				if err != nil {
-					return err
-				}
+				r.setAllowRule(v)
 			case "denyRegex":
-				err := r.setDenyRule(v)
-				if err != nil {
-					return err
-				}
-
+				r.setDenyRule(v)
 			default:
-				return fmt.Errorf("invalid map key for 'import-alias-naming' rule. Expecting 'allowRegex' or 'denyRegex', got %v", k)
+				panic(fmt.Sprintf("Invalid map key for 'import-alias-naming' rule. Expecting 'allowRegex' or 'denyRegex', got %v", k))
 			}
 		}
 	default:
-		return fmt.Errorf("invalid argument '%v' for 'import-alias-naming' rule. Expecting string or map[string]string, got %T", arguments[0], arguments[0])
+		panic(fmt.Sprintf("Invalid argument '%v' for 'import-alias-naming' rule. Expecting string or map[string]string, got %T", arguments[0], arguments[0]))
 	}
 
 	if r.allowRegexp == nil && r.denyRegexp == nil {
 		r.allowRegexp = defaultImportAliasNamingAllowRegexp
 	}
-	return nil
 }
 
 // Apply applies the rule to given file.
-func (r *ImportAliasNamingRule) Apply(file *lint.File, _ lint.Arguments) []lint.Failure {
+func (r *ImportAliasNamingRule) Apply(file *lint.File, arguments lint.Arguments) []lint.Failure {
+	r.configureOnce.Do(func() { r.configure(arguments) })
+
 	var failures []lint.Failure
 
 	for _, is := range file.AST.Imports {
@@ -80,7 +71,7 @@ func (r *ImportAliasNamingRule) Apply(file *lint.File, _ lint.Arguments) []lint.
 				Confidence: 1,
 				Failure:    fmt.Sprintf("import name (%s) must match the regular expression: %s", alias.Name, r.allowRegexp.String()),
 				Node:       alias,
-				Category:   lint.FailureCategoryImports,
+				Category:   "imports",
 			})
 		}
 
@@ -89,7 +80,7 @@ func (r *ImportAliasNamingRule) Apply(file *lint.File, _ lint.Arguments) []lint.
 				Confidence: 1,
 				Failure:    fmt.Sprintf("import name (%s) must NOT match the regular expression: %s", alias.Name, r.denyRegexp.String()),
 				Node:       alias,
-				Category:   lint.FailureCategoryImports,
+				Category:   "imports",
 			})
 		}
 	}
@@ -102,30 +93,28 @@ func (*ImportAliasNamingRule) Name() string {
 	return "import-alias-naming"
 }
 
-func (r *ImportAliasNamingRule) setAllowRule(value any) error {
+func (r *ImportAliasNamingRule) setAllowRule(value any) {
 	namingRule, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("invalid argument '%v' for import-alias-naming allowRegexp rule. Expecting string, got %T", value, value)
+		panic(fmt.Sprintf("Invalid argument '%v' for import-alias-naming allowRegexp rule. Expecting string, got %T", value, value))
 	}
 
 	namingRuleRegexp, err := regexp.Compile(namingRule)
 	if err != nil {
-		return fmt.Errorf("invalid argument to the import-alias-naming allowRegexp rule. Expecting %q to be a valid regular expression, got: %w", namingRule, err)
+		panic(fmt.Sprintf("Invalid argument to the import-alias-naming allowRegexp rule. Expecting %q to be a valid regular expression, got: %v", namingRule, err))
 	}
 	r.allowRegexp = namingRuleRegexp
-	return nil
 }
 
-func (r *ImportAliasNamingRule) setDenyRule(value any) error {
+func (r *ImportAliasNamingRule) setDenyRule(value any) {
 	namingRule, ok := value.(string)
 	if !ok {
-		return fmt.Errorf("invalid argument '%v' for import-alias-naming denyRegexp rule. Expecting string, got %T", value, value)
+		panic(fmt.Sprintf("Invalid argument '%v' for import-alias-naming denyRegexp rule. Expecting string, got %T", value, value))
 	}
 
 	namingRuleRegexp, err := regexp.Compile(namingRule)
 	if err != nil {
-		return fmt.Errorf("invalid argument to the import-alias-naming denyRegexp rule. Expecting %q to be a valid regular expression, got: %w", namingRule, err)
+		panic(fmt.Sprintf("Invalid argument to the import-alias-naming denyRegexp rule. Expecting %q to be a valid regular expression, got: %v", namingRule, err))
 	}
 	r.denyRegexp = namingRuleRegexp
-	return nil
 }
