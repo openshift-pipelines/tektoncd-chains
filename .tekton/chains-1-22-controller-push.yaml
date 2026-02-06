@@ -13,13 +13,13 @@ metadata:
       == "release-v1.22.x" &&
       ("upstream/***".pathChanged() || ".konflux/patches/***".pathChanged() || ".konflux/rpms/***".pathChanged() ||
       ".konflux/dockerfiles/controller.Dockerfile".pathChanged() ||
-      ".tekton/tektoncd-chains-1-22-controller-push.yaml".pathChanged())
+      ".tekton/chains-1-22-controller-push.yaml".pathChanged())
   creationTimestamp: null
   labels:
     appstudio.openshift.io/application: openshift-pipelines-core-1-22
-    appstudio.openshift.io/component: tektoncd-chains-1-22-controller
+    appstudio.openshift.io/component: chains-1-22-controller
     pipelines.appstudio.openshift.io/type: build
-  name: tektoncd-chains-1-22-controller-on-push
+  name: chains-1-22-controller-on-push
   namespace: tekton-ecosystem-tenant
 spec:
   params:
@@ -42,7 +42,7 @@ spec:
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
-    serviceAccountName: build-pipeline-tektoncd-chains-1-22-controller
+    serviceAccountName: build-pipeline-chains-1-22-controller
   workspaces:
   - name: git-auth
     secret:
