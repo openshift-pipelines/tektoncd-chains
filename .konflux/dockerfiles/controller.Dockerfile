@@ -24,15 +24,16 @@ COPY --from=builder /tmp/controller /ko-app/controller
 COPY head ${KO_DATA_PATH}/HEAD
 
 LABEL \
-      com.redhat.component="openshift-pipelines-chains-controller-rhel8-container" \
-      name="openshift-pipelines/pipelines-chains-controller-rhel8" \
-      version=$VERSION \
-      summary="Red Hat OpenShift Pipelines Chains Controller" \
+      com.redhat.component="openshift-pipelines-chains-controller-rhel9-container" \
+      cpe="cpe:/a:redhat:openshift_pipelines:1.22::el9" \
+      description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+      io.k8s.description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+      io.k8s.display-name="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+      io.openshift.tags="tekton,openshift,tektoncd-chains,controller" \
       maintainer="pipelines-extcomm@redhat.com" \
-      description="Red Hat OpenShift Pipelines Chains Controller" \
-      io.k8s.display-name="Red Hat OpenShift Pipelines Chains Controller" \
-      io.k8s.description="Red Hat OpenShift Pipelines Chains Controller" \
-      io.openshift.tags="pipelines,tekton,openshift"
+      name="openshift-pipelines/pipelines-chains-controller-rhel9" \
+      summary="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+      version="v1.22.0"
 
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
