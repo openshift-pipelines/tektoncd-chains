@@ -1,4 +1,4 @@
-ARG GO_BUILDER=brew.registry.redhat.io/rh-osbs/openshift-golang-builder:v1.24
+ARG GO_BUILDER=registry.access.redhat.com/ubi9/go-toolset:1.25
 ARG RUNTIME=registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:c7d44146f826037f6873d99da479299b889473492d3c1ab8af86f08af04ec8a0 
 
 FROM $GO_BUILDER AS builder
@@ -14,7 +14,7 @@ RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat HEAD)'" -mod=vend
     ./cmd/controller
 
 FROM $RUNTIME
-ARG VERSION=chains-main
+ARG VERSION=next
 
 ENV CONTROLLER=/usr/local/bin/controller \
     KO_APP=/ko-app \
@@ -24,16 +24,16 @@ COPY --from=builder /tmp/controller /ko-app/controller
 COPY head ${KO_DATA_PATH}/HEAD
 
 LABEL \
-      com.redhat.component="openshift-pipelines-chains-controller-rhel9-container" \
-      cpe="cpe:/a:redhat:openshift_pipelines:next::el9" \
-      description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
-      io.k8s.description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
-      io.k8s.display-name="Red Hat OpenShift Pipelines tektoncd-chains controller" \
-      io.openshift.tags="tekton,openshift,tektoncd-chains,controller" \
-      maintainer="pipelines-extcomm@redhat.com" \
-      name="openshift-pipelines/pipelines-chains-controller-rhel9" \
-      summary="Red Hat OpenShift Pipelines tektoncd-chains controller" \
-      version="next"
+    com.redhat.component="openshift-pipelines-chains-controller-rhel9-container" \
+    cpe="cpe:/a:redhat:openshift_pipelines:next::el9" \
+    description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    io.k8s.description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    io.k8s.display-name="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    io.openshift.tags="tekton,openshift,tektoncd-chains,controller" \
+    maintainer="pipelines-extcomm@redhat.com" \
+    name="openshift-pipelines/pipelines-chains-controller-rhel9" \
+    summary="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    version="next"
 
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
