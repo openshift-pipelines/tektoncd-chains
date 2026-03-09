@@ -1,5 +1,5 @@
 # Rebuild trigger: 1.15.4 release 2026-01-19
-ARG GO_BUILDER=registry.access.redhat.com/ubi8/go-toolset:1.25.7-1772050971
+ARG GO_BUILDER=registry.access.redhat.com/ubi9/go-toolset:1.25
 ARG RUNTIME=registry.redhat.io/ubi8/ubi:latest@sha256:a9bd8791589bee5bc0f9444fc37bdf7e8fabb8edf1d3f71dd673d31688c10950
 
 FROM $GO_BUILDER AS builder
@@ -14,7 +14,7 @@ RUN go build -ldflags="-X 'knative.dev/pkg/changeset.rev=$(cat HEAD)'" -mod=vend
     ./cmd/controller
 
 FROM $RUNTIME
-ARG VERSION=chains-1.15.4
+ARG VERSION=1.15
 
 ENV CONTROLLER=/usr/local/bin/controller \
     KO_APP=/ko-app \
@@ -24,16 +24,16 @@ COPY --from=builder /tmp/controller /ko-app/controller
 COPY head ${KO_DATA_PATH}/HEAD
 
 LABEL \
-      com.redhat.component="openshift-pipelines-chains-controller-rhel8-container" \
-      name="openshift-pipelines/pipelines-chains-controller-rhel8" \
-      version=$VERSION \
-      summary="Red Hat OpenShift Pipelines Chains Controller" \
-      maintainer="pipelines-extcomm@redhat.com" \
-      description="Red Hat OpenShift Pipelines Chains Controller" \
-      io.k8s.display-name="Red Hat OpenShift Pipelines Chains Controller" \
-      io.k8s.description="Red Hat OpenShift Pipelines Chains Controller" \
-      io.openshift.tags="pipelines,tekton,openshift" \
-      cpe="cpe:/a:redhat:openshift_pipelines:1.15::el8"
+    com.redhat.component="openshift-pipelines-chains-controller-rhel9-container" \
+    cpe="cpe:/a:redhat:openshift_pipelines:1.15::el9" \
+    description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    io.k8s.description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    io.k8s.display-name="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    io.openshift.tags="tekton,openshift,tektoncd-chains,controller" \
+    maintainer="pipelines-extcomm@redhat.com" \
+    name="openshift-pipelines/pipelines-chains-controller-rhel9" \
+    summary="Red Hat OpenShift Pipelines tektoncd-chains controller" \
+    version="v1.15.5"
 
 RUN groupadd -r -g 65532 nonroot && useradd --no-log-init -r -u 65532 -g nonroot nonroot
 USER 65532
