@@ -22,17 +22,9 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
-)
 
-// Interface internalWriter wraps low-level implementations which may vary
-// across client types.
-type internalWriter interface {
-	io.WriteCloser
-	Flush() (int64, error)
-	// CloseWithError terminates the write operation and sets its status.
-	// Note that CloseWithError always returns nil.
-	CloseWithError(error) error
-}
+	"cloud.google.com/go/internal/trace"
+)
 
 // A Writer writes a Cloud Storage object.
 type Writer struct {
@@ -119,9 +111,6 @@ type Writer struct {
 	// when Writer.Close() is called; otherwise, the object is left unfinalized
 	// and can be appended to later.
 	//
-	// Defaults to false unless the experiemental WithZonalBucketAPIs option was
-	// set.
-	//
 	// Append is only supported for gRPC. This feature is in preview and is not
 	// yet available for general use.
 	Append bool
@@ -152,14 +141,15 @@ type Writer struct {
 
 	opened bool
 	closed bool
-	iw     internalWriter
+	pw     *io.PipeWriter
 
 	donec chan struct{} // closed after err and obj are set.
 	obj   *ObjectAttrs
 
-	mu                sync.Mutex
-	err               error
-	setTakeoverOffset func(int64)
+	mu             sync.Mutex
+	err            error
+	flush          func() (int64, error)
+	takeoverOffset int64 // offset from which the writer started appending to the object.
 }
 
 // Write appends to w. It implements the io.Writer interface.
@@ -183,7 +173,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 			return 0, err
 		}
 	}
-	n, err = w.iw.Write(p)
+	n, err = w.pw.Write(p)
 	if err != nil {
 		w.mu.Lock()
 		werr := w.err
@@ -233,12 +223,14 @@ func (w *Writer) Flush() (int64, error) {
 	// If Flush called before any bytes written, it should start the upload
 	// at zero bytes. This will make the object visible with zero length data.
 	if !w.opened {
-		if err := w.openWriter(); err != nil {
+		err := w.openWriter()
+		if err != nil {
 			return 0, err
 		}
+		w.progress(0)
 	}
 
-	return w.iw.Flush()
+	return w.flush()
 }
 
 // Close completes the write operation and flushes any buffered data.
@@ -251,7 +243,8 @@ func (w *Writer) Close() error {
 		}
 	}
 
-	if err := w.iw.Close(); err != nil {
+	// Closing either the read or write causes the entire pipe to close.
+	if err := w.pw.Close(); err != nil {
 		return err
 	}
 
@@ -259,7 +252,7 @@ func (w *Writer) Close() error {
 	w.closed = true
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	endSpan(w.ctx, w.err)
+	trace.EndSpan(w.ctx, w.err)
 	return w.err
 }
 
@@ -272,8 +265,6 @@ func (w *Writer) openWriter() (err error) {
 	}
 
 	isIdempotent := w.o.conds != nil && (w.o.conds.GenerationMatch >= 0 || w.o.conds.DoesNotExist)
-	// Append operations that takeover a specific generation are idempotent.
-	isIdempotent = isIdempotent || w.Append && w.o.gen > 0
 	opts := makeStorageOpts(isIdempotent, w.o.retry, w.o.userProject)
 	params := &openWriterParams{
 		ctx:                  w.ctx,
@@ -292,18 +283,20 @@ func (w *Writer) openWriter() (err error) {
 		setError:             w.error,
 		progress:             w.progress,
 		setObj:               func(o *ObjectAttrs) { w.obj = o },
+		setFlush:             func(f func() (int64, error)) { w.flush = f },
 		setSize: func(n int64) {
 			if w.obj != nil {
 				w.obj.Size = n
 			}
 		},
-		setTakeoverOffset:     w.setTakeoverOffset,
+		setPipeWriter:         func(pw *io.PipeWriter) { w.pw = pw },
+		setTakeoverOffset:     func(n int64) { w.takeoverOffset = n },
 		forceEmptyContentType: w.ForceEmptyContentType,
 	}
 	if err := w.ctx.Err(); err != nil {
 		return err // short-circuit
 	}
-	w.iw, err = w.o.c.tc.OpenWriter(params, opts...)
+	w.pw, err = w.o.c.tc.OpenWriter(params, opts...)
 	if err != nil {
 		return err
 	}
@@ -324,6 +317,7 @@ func (w *Writer) monitorCancel() {
 		w.err = werr
 		w.mu.Unlock()
 
+		// Closing either the read or write causes the entire pipe to close.
 		w.CloseWithError(werr)
 	case <-w.donec:
 	}
@@ -337,7 +331,7 @@ func (w *Writer) CloseWithError(err error) error {
 	if !w.opened {
 		return nil
 	}
-	return w.iw.CloseWithError(err)
+	return w.pw.CloseWithError(err)
 }
 
 // Attrs returns metadata about a successfully-written object.
