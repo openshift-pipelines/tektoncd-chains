@@ -85,6 +85,11 @@ type doConfig struct {
 func WithDebugHTTP(d bool) DoOption { return func(c *doConfig) { c.debugHTTP = d } }
 func WithTraceHTTP(t bool) DoOption { return func(c *doConfig) { c.traceHTTP = t } }
 
+type traceEvent struct {
+	event string
+	since time.Duration
+}
+
 type tracer struct {
 	startTime time.Time
 	logger.Logger
@@ -95,15 +100,15 @@ func (t *tracer) Start() {
 }
 
 func (t *tracer) LogTiming(event string) {
-	t.Logger = t.WithFields(logger.DurationField(event, time.Since(t.startTime)))
+	t.Logger = t.Logger.WithFields(logger.DurationField(event, time.Since(t.startTime)))
 }
 
 func (t *tracer) LogField(key, value string) {
-	t.Logger = t.WithFields(logger.StringField(key, value))
+	t.Logger = t.Logger.WithFields(logger.StringField(key, value))
 }
 
 func (t *tracer) LogDuration(event string, d time.Duration) {
-	t.Logger = t.WithFields(logger.DurationField(event, d))
+	t.Logger = t.Logger.WithFields(logger.DurationField(event, d))
 }
 
 // Currently logger.Logger doesn't give us a way to set the level we want to emit logs at dynamically
