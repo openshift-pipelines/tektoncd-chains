@@ -13,7 +13,7 @@
         "builder": {
             "id": "https://tekton.dev/chains/v2"
         },
-        "buildType": "tekton.dev/v1beta1/PipelineRun",
+        "buildType": "tekton.dev/v1/PipelineRun",
         "invocation": {
             "configSource": {},
             "parameters": {
@@ -28,6 +28,7 @@
                     "ref": {},
                     "startedOn": "{{index .BuildStartTimes 0}}",
                     "finishedOn": "{{index .BuildFinishedTimes 0}}",
+                    "serviceAccountName": "default",
                     "status": "Succeeded",
                     "steps": [
                         {

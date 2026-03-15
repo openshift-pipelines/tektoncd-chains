@@ -19,21 +19,22 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	intoto "github.com/in-toto/in-toto-golang/in_toto"
+	intoto "github.com/in-toto/attestation/go/v1"
 	"github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/common"
+	"google.golang.org/protobuf/testing/protocmp"
 )
 
 func TestAppendSubjects(t *testing.T) {
 	tests := []struct {
 		name     string
-		original []intoto.Subject
-		toAdd    []intoto.Subject
-		want     []intoto.Subject
+		original []*intoto.ResourceDescriptor
+		toAdd    []*intoto.ResourceDescriptor
+		want     []*intoto.ResourceDescriptor
 	}{{
 		name: "add a completely new subject",
-		original: []intoto.Subject{
+		original: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -44,17 +45,17 @@ func TestAppendSubjects(t *testing.T) {
 				},
 			},
 		},
-		toAdd: []intoto.Subject{
+		toAdd: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
 				Digest: common.DigestSet{
 					"sha256": "c",
 				},
 			},
 		},
-		want: []intoto.Subject{
+		want: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -64,7 +65,7 @@ func TestAppendSubjects(t *testing.T) {
 					"sha256": "b",
 				},
 			}, {
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
 				Digest: common.DigestSet{
 					"sha256": "c",
 				},
@@ -72,25 +73,25 @@ func TestAppendSubjects(t *testing.T) {
 		},
 	}, {
 		name: "add a subject with same uri and digest",
-		original: []intoto.Subject{
+		original: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
 			},
 		},
-		toAdd: []intoto.Subject{
+		toAdd: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
 			},
 		},
-		want: []intoto.Subject{
+		want: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -98,30 +99,30 @@ func TestAppendSubjects(t *testing.T) {
 		},
 	}, {
 		name: "add a subject with same uri but different digest",
-		original: []intoto.Subject{
+		original: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
 			},
 		},
-		toAdd: []intoto.Subject{
+		toAdd: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "b",
 				},
 			},
 		},
-		want: []intoto.Subject{
+		want: []*intoto.ResourceDescriptor{
 			{
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
 			}, {
-				Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "b",
 				},
@@ -130,27 +131,27 @@ func TestAppendSubjects(t *testing.T) {
 	},
 		{
 			name: "add a subject with same uri, one common digest and one different digest",
-			original: []intoto.Subject{
+			original: []*intoto.ResourceDescriptor{
 				{
-					Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+					Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 					Digest: common.DigestSet{
 						"sha256": "a",
 						"sha224": "b",
 					},
 				},
 			},
-			toAdd: []intoto.Subject{
+			toAdd: []*intoto.ResourceDescriptor{
 				{
-					Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+					Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 					Digest: common.DigestSet{
 						"sha256": "a",
 						"sha512": "c",
 					},
 				},
 			},
-			want: []intoto.Subject{
+			want: []*intoto.ResourceDescriptor{
 				{
-					Name: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+					Name: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 					Digest: common.DigestSet{
 						"sha256": "a",
 						"sha224": "b",
@@ -164,7 +165,7 @@ func TestAppendSubjects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := AppendSubjects(tc.original, tc.toAdd...)
 
-			if diff := cmp.Diff(tc.want, got); diff != "" {
+			if diff := cmp.Diff(tc.want, got, cmp.Options{protocmp.Transform()}); diff != "" {
 				t.Errorf("materials(): -want +got: %s", diff)
 			}
 		})
@@ -181,7 +182,7 @@ func TestAppendMaterials(t *testing.T) {
 		name: "add a completely new material",
 		original: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -194,7 +195,7 @@ func TestAppendMaterials(t *testing.T) {
 		},
 		toAdd: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
 				Digest: common.DigestSet{
 					"sha256": "c",
 				},
@@ -202,7 +203,7 @@ func TestAppendMaterials(t *testing.T) {
 		},
 		want: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -212,7 +213,7 @@ func TestAppendMaterials(t *testing.T) {
 					"sha256": "b",
 				},
 			}, {
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/sidecar-git-init",
 				Digest: common.DigestSet{
 					"sha256": "c",
 				},
@@ -222,7 +223,7 @@ func TestAppendMaterials(t *testing.T) {
 		name: "add a material with same uri and digest",
 		original: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -230,7 +231,7 @@ func TestAppendMaterials(t *testing.T) {
 		},
 		toAdd: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -238,7 +239,7 @@ func TestAppendMaterials(t *testing.T) {
 		},
 		want: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -248,7 +249,7 @@ func TestAppendMaterials(t *testing.T) {
 		name: "add a material with same uri but different digest",
 		original: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
@@ -256,7 +257,7 @@ func TestAppendMaterials(t *testing.T) {
 		},
 		toAdd: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "b",
 				},
@@ -264,12 +265,12 @@ func TestAppendMaterials(t *testing.T) {
 		},
 		want: []common.ProvenanceMaterial{
 			{
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "a",
 				},
 			}, {
-				URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+				URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 				Digest: common.DigestSet{
 					"sha256": "b",
 				},
@@ -280,7 +281,7 @@ func TestAppendMaterials(t *testing.T) {
 			name: "add a material with same uri, one common digest and one different digest",
 			original: []common.ProvenanceMaterial{
 				{
-					URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+					URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 					Digest: common.DigestSet{
 						"sha256": "a",
 						"sha224": "b",
@@ -289,7 +290,7 @@ func TestAppendMaterials(t *testing.T) {
 			},
 			toAdd: []common.ProvenanceMaterial{
 				{
-					URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+					URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 					Digest: common.DigestSet{
 						"sha256": "a",
 						"sha512": "c",
@@ -298,7 +299,7 @@ func TestAppendMaterials(t *testing.T) {
 			},
 			want: []common.ProvenanceMaterial{
 				{
-					URI: "ghcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
+					URI: "gcr.io/tekton-releases/github.com/tektoncd/pipeline/cmd/git-init",
 					Digest: common.DigestSet{
 						"sha256": "a",
 						"sha224": "b",
@@ -312,7 +313,7 @@ func TestAppendMaterials(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := AppendMaterials(tc.original, tc.toAdd...)
 
-			if diff := cmp.Diff(tc.want, got); diff != "" {
+			if diff := cmp.Diff(tc.want, got, cmp.Options{protocmp.Transform()}); diff != "" {
 				t.Errorf("materials(): -want +got: %s", diff)
 			}
 		})

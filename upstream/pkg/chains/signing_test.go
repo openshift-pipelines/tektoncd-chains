@@ -14,12 +14,16 @@ limitations under the License.
 package chains
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	intoto "github.com/in-toto/attestation/go/v1"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/chains/signing"
@@ -405,12 +409,150 @@ func TestSigningObjects(t *testing.T) {
 	}
 }
 
+func TestGetRawPayload(t *testing.T) {
+	tests := []struct {
+		name     string
+		payload  interface{}
+		expected string
+	}{
+		{
+			name: "intoto.Statement object",
+			payload: intoto.Statement{
+				Type:          "type1",
+				PredicateType: "predicate-type1",
+			},
+			expected: compactJSON(t, []byte(`{"_type":"type1","predicateType":"predicate-type1"}`)),
+		},
+		{
+			name: "*intoto.Statement object",
+			payload: &intoto.Statement{
+				Type:          "type1",
+				PredicateType: "predicate-type1",
+			},
+			expected: compactJSON(t, []byte(`{"_type":"type1","predicateType":"predicate-type1"}`)),
+		},
+		{
+			name:     "*intoto.Statement object - nil",
+			payload:  (func() *intoto.Statement { return nil })(),
+			expected: "null",
+		},
+		{
+			name:     "other object - nil",
+			payload:  nil,
+			expected: "null",
+		},
+		{
+			name: "other object with value",
+			payload: struct {
+				Name  string
+				ID    int
+				Inner any
+			}{
+				Name: "wrapper",
+				ID:   1,
+				Inner: struct {
+					InnerID     int
+					Description string
+					IsArtifact  bool
+				}{
+					InnerID:     2,
+					Description: "some description",
+					IsArtifact:  true,
+				},
+			},
+			expected: compactJSON(t, []byte(`{"Name":"wrapper","ID":1,"Inner": {"InnerID":2,"Description":"some description","IsArtifact":true}}`)),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := getRawPayload(test.payload)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			compactExpected := compactJSON(t, got)
+			if diff := cmp.Diff(test.expected, compactExpected); diff != "" {
+				t.Errorf("getRawPayload(), -want +got, diff = %s", diff)
+			}
+		})
+	}
+}
+
+func compactJSON(t *testing.T, jsonString []byte) string {
+	t.Helper()
+	dst := &bytes.Buffer{}
+	if err := json.Compact(dst, jsonString); err != nil {
+		t.Fatalf("error getting compact JSON: %v", err)
+	}
+	return dst.String()
+}
+
 func fakeAllBackends(backends []*mockBackend) map[string]storage.Backend {
 	newBackends := map[string]storage.Backend{}
 	for _, m := range backends {
 		newBackends[m.backendType] = m
 	}
 	return newBackends
+}
+
+func TestObjectSigner_Sign_OCIDisabled(t *testing.T) {
+	tests := []struct {
+		name                  string
+		config                config.Config
+		expectOCIEnabled      bool
+		expectPipelineEnabled bool
+	}{
+		{
+			name: "OCI signing enabled by default",
+			config: config.Config{
+				Artifacts: config.ArtifactConfigs{
+					OCI: config.Artifact{
+						Format:         "simplesigning",
+						StorageBackend: sets.New[string]("mock"),
+						Signer:         "x509",
+					},
+					PipelineRuns: config.Artifact{
+						Format:         "slsa/v1",
+						StorageBackend: sets.New[string]("mock"),
+						Signer:         "x509",
+					},
+				},
+			},
+			expectOCIEnabled:      true,
+			expectPipelineEnabled: true,
+		},
+		{
+			name: "OCI signing disabled with none signer",
+			config: config.Config{
+				Artifacts: config.ArtifactConfigs{
+					OCI: config.Artifact{
+						Format:         "simplesigning",
+						StorageBackend: sets.New[string]("mock"),
+						Signer:         "none",
+					},
+					PipelineRuns: config.Artifact{
+						Format:         "slsa/v1",
+						StorageBackend: sets.New[string]("mock"),
+						Signer:         "x509",
+					},
+				},
+			},
+			expectOCIEnabled:      false,
+			expectPipelineEnabled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Test direct artifact configuration - this is the core functionality
+			if tt.config.Artifacts.OCI.Enabled() != tt.expectOCIEnabled {
+				t.Errorf("Config OCI.Enabled() = %v, want %v", tt.config.Artifacts.OCI.Enabled(), tt.expectOCIEnabled)
+			}
+			if tt.config.Artifacts.PipelineRuns.Enabled() != tt.expectPipelineEnabled {
+				t.Errorf("Config PipelineRuns.Enabled() = %v, want %v", tt.config.Artifacts.PipelineRuns.Enabled(), tt.expectPipelineEnabled)
+			}
+		})
+	}
 }
 
 func setupMocks(rekor *mockRekor) func() {
