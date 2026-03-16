@@ -3557,11 +3557,6 @@ func awsAwsjson11_serializeOpDocumentCreatePullThroughCacheRuleInput(v *CreatePu
 		ok.String(*v.CredentialArn)
 	}
 
-	if v.CustomRoleArn != nil {
-		ok := object.Key("customRoleArn")
-		ok.String(*v.CustomRoleArn)
-	}
-
 	if v.EcrRepositoryPrefix != nil {
 		ok := object.Key("ecrRepositoryPrefix")
 		ok.String(*v.EcrRepositoryPrefix)
@@ -3580,11 +3575,6 @@ func awsAwsjson11_serializeOpDocumentCreatePullThroughCacheRuleInput(v *CreatePu
 	if v.UpstreamRegistryUrl != nil {
 		ok := object.Key("upstreamRegistryUrl")
 		ok.String(*v.UpstreamRegistryUrl)
-	}
-
-	if v.UpstreamRepositoryPrefix != nil {
-		ok := object.Key("upstreamRepositoryPrefix")
-		ok.String(*v.UpstreamRepositoryPrefix)
 	}
 
 	return nil
@@ -4456,11 +4446,6 @@ func awsAwsjson11_serializeOpDocumentUpdatePullThroughCacheRuleInput(v *UpdatePu
 	if v.CredentialArn != nil {
 		ok := object.Key("credentialArn")
 		ok.String(*v.CredentialArn)
-	}
-
-	if v.CustomRoleArn != nil {
-		ok := object.Key("customRoleArn")
-		ok.String(*v.CustomRoleArn)
 	}
 
 	if v.EcrRepositoryPrefix != nil {
