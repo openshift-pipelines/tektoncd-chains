@@ -20,67 +20,40 @@ import (
 	"context"
 	"sync"
 
+	"github.com/tektoncd/chains/pkg/chains"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
-	"go.opencensus.io/tag"
 	"knative.dev/pkg/logging"
 	"knative.dev/pkg/metrics"
-
-	common "github.com/tektoncd/chains/pkg/metrics"
-)
-
-const (
-	taskRunSignedName     common.Metric = "taskrun_sign_created_total"
-	taskRunSignedDesc     string        = "Total number of signed messages for taskruns"
-	taskRunUploadedName   common.Metric = "taskrun_payload_uploaded_total"
-	taskRunUploadedDesc   string        = "Total number of uploaded payloads for taskruns"
-	taskRunStoredName     common.Metric = "taskrun_payload_stored_total"
-	taskRunStoredDesc     string        = "Total number of stored payloads for taskruns"
-	taskRunMarkedName     common.Metric = "taskrun_marked_signed_total"
-	taskRunMarkedDesc     string        = "Total number of objects marked as signed for taskruns"
-	taskRunErrorCountName common.Metric = "taskrun_signing_failures_total"
-	taskRunErrorCountDesc string        = "Total number of TaskRun signing failures"
 )
 
 var (
 	sgCountView *view.View
 
-	sgCount = stats.Float64(string(taskRunSignedName),
-		taskRunSignedDesc,
+	sgCount = stats.Float64(chains.TaskRunSignedName,
+		chains.TaskRunSignedDesc,
 		stats.UnitDimensionless)
 
-	plCount = stats.Float64(string(taskRunUploadedName),
-		taskRunUploadedDesc,
+	plCount = stats.Float64(chains.TaskRunUploadedName,
+		chains.TaskRunUploadedDesc,
 		stats.UnitDimensionless)
 
 	plCountView *view.View
 
-	stCount = stats.Float64(string(taskRunStoredName),
-		taskRunStoredDesc,
+	stCount = stats.Float64(chains.TaskRunStoredName,
+		chains.TaskRunStoredDesc,
 		stats.UnitDimensionless)
 
 	stCountView *view.View
 
-	mrCount = stats.Float64(string(taskRunMarkedName),
-		taskRunMarkedDesc,
+	mrCount = stats.Float64(chains.TaskRunMarkedName,
+		chains.TaskRunMarkedDesc,
 		stats.UnitDimensionless)
 
 	mrCountView *view.View
-
-	taskRunErrorCount = stats.Float64(
-		string(taskRunErrorCountName),
-		taskRunErrorCountDesc,
-		stats.UnitDimensionless,
-	)
-
-	errorCountView *view.View
-
-	errorTypeKey, _ = tag.NewKey("error_type")
 )
 
-var _ common.Recorder = &Recorder{}
-
-// Recorder is used to actually record TaskRun metrics.
+// Recorder is used to actually record TaskRun metrics
 type Recorder struct {
 	initialized bool
 }
@@ -94,7 +67,7 @@ var (
 )
 
 // NewRecorder creates a new metrics recorder instance
-// to log the TaskRun related metrics.
+// to log the TaskRun related metrics
 func NewRecorder(ctx context.Context) (*Recorder, error) {
 	var errRegistering error
 	logger := logging.FromContext(ctx)
@@ -138,51 +111,35 @@ func viewRegister() error {
 		Measure:     mrCount,
 		Aggregation: view.Count(),
 	}
-
-	errorCountView = &view.View{
-		Description: taskRunErrorCount.Description(),
-		Measure:     taskRunErrorCount,
-		TagKeys:     []tag.Key{errorTypeKey},
-		Aggregation: view.Count(),
-	}
-
 	return view.Register(
 		sgCountView,
 		plCountView,
 		stCountView,
 		mrCountView,
-		errorCountView,
 	)
 }
 
-// RecordCountMetrics implements github.com/tektoncd/chains/pkg/metrics.Recorder.RecordCountMetrics
-func (r *Recorder) RecordCountMetrics(ctx context.Context, metricType common.Metric) {
+func (r *Recorder) RecordCountMetrics(ctx context.Context, metricType string) {
 	logger := logging.FromContext(ctx)
 
 	if !r.initialized {
 		logger.Errorf("ignoring the metrics recording as recorder not initialized ")
 	}
 	switch mt := metricType; mt {
-	case common.SignedMessagesCount:
+	case chains.SignedMessagesCount:
 		r.countMetrics(ctx, sgCount)
-	case common.PayloadUploadeCount:
+	case chains.PayloadUploadeCount:
 		r.countMetrics(ctx, plCount)
-	case common.SignsStoredCount:
+	case chains.SignsStoredCount:
 		r.countMetrics(ctx, stCount)
-	case common.MarkedAsSignedCount:
+	case chains.MarkedAsSignedCount:
 		r.countMetrics(ctx, mrCount)
 	default:
 		logger.Errorf("Ignoring the metrics recording as valid Metric type matching %v was not found", mt)
 	}
+
 }
 
 func (r *Recorder) countMetrics(ctx context.Context, measure *stats.Float64Measure) {
 	metrics.Record(ctx, measure.M(1))
-}
-
-// RecordErrorMetric records a TaskRun signing failure with a given error type tag.
-func (r *Recorder) RecordErrorMetric(ctx context.Context, errType common.MetricErrorType) {
-	// Add the error_type tag to the context.
-	ctx, _ = tag.New(ctx, tag.Upsert(errorTypeKey, string(errType)))
-	metrics.Record(ctx, taskRunErrorCount.M(1))
 }
