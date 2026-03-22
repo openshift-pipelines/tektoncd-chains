@@ -28,7 +28,7 @@ import (
 
 	"google.golang.org/grpc/balancer"
 	"google.golang.org/grpc/balancer/endpointsharding"
-	"google.golang.org/grpc/balancer/pickfirst"
+	"google.golang.org/grpc/balancer/pickfirst/pickfirstleaf"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/grpclog"
 	internalgrpclog "google.golang.org/grpc/internal/grpclog"
@@ -88,17 +88,20 @@ func (bb) Name() string {
 func (bb) Build(cc balancer.ClientConn, bOpts balancer.BuildOptions) balancer.Balancer {
 	b := &leastRequestBalancer{
 		ClientConn:        cc,
-		endpointRPCCounts: resolver.NewEndpointMap[*atomic.Int32](),
+		endpointRPCCounts: resolver.NewEndpointMap(),
 	}
-	b.child = endpointsharding.NewBalancer(b, bOpts, balancer.Get(pickfirst.Name).Build, endpointsharding.Options{})
+	b.child = endpointsharding.NewBalancer(b, bOpts, balancer.Get(pickfirstleaf.Name).Build, endpointsharding.Options{})
 	b.logger = internalgrpclog.NewPrefixLogger(logger, fmt.Sprintf("[%p] ", b))
 	b.logger.Infof("Created")
 	return b
 }
 
 type leastRequestBalancer struct {
-	// Embeds balancer.ClientConn because we need to intercept UpdateState
-	// calls from the child balancer.
+	// Embeds balancer.Balancer because needs to intercept UpdateClientConnState
+	// to learn about choiceCount.
+	balancer.Balancer
+	// Embeds balancer.ClientConn because needs to intercept UpdateState calls
+	// from the child balancer.
 	balancer.ClientConn
 	child  balancer.Balancer
 	logger *internalgrpclog.PrefixLogger
@@ -107,25 +110,12 @@ type leastRequestBalancer struct {
 	choiceCount uint32
 	// endpointRPCCounts holds RPC counts to keep track for subsequent picker
 	// updates.
-	endpointRPCCounts *resolver.EndpointMap[*atomic.Int32]
+	endpointRPCCounts *resolver.EndpointMap // endpoint -> *atomic.Int32
 }
 
 func (lrb *leastRequestBalancer) Close() {
 	lrb.child.Close()
 	lrb.endpointRPCCounts = nil
-}
-
-func (lrb *leastRequestBalancer) UpdateSubConnState(sc balancer.SubConn, state balancer.SubConnState) {
-	lrb.logger.Errorf("UpdateSubConnState(%v, %+v) called unexpectedly", sc, state)
-}
-
-func (lrb *leastRequestBalancer) ResolverError(err error) {
-	// Will cause inline picker update from endpoint sharding.
-	lrb.child.ResolverError(err)
-}
-
-func (lrb *leastRequestBalancer) ExitIdle() {
-	lrb.child.ExitIdle()
 }
 
 func (lrb *leastRequestBalancer) UpdateClientConnState(ccs balancer.ClientConnState) error {
@@ -141,7 +131,7 @@ func (lrb *leastRequestBalancer) UpdateClientConnState(ccs balancer.ClientConnSt
 	return lrb.child.UpdateClientConnState(balancer.ClientConnState{
 		// Enable the health listener in pickfirst children for client side health
 		// checks and outlier detection, if configured.
-		ResolverState: pickfirst.EnableHealthListener(ccs.ResolverState),
+		ResolverState: pickfirstleaf.EnableHealthListener(ccs.ResolverState),
 	})
 }
 
@@ -174,7 +164,7 @@ func (lrb *leastRequestBalancer) UpdateState(state balancer.State) {
 	}
 
 	// Reconcile endpoints.
-	newEndpoints := resolver.NewEndpointMap[any]()
+	newEndpoints := resolver.NewEndpointMap() // endpoint -> nil
 	for _, child := range readyEndpoints {
 		newEndpoints.Set(child.Endpoint, nil)
 	}
@@ -189,11 +179,13 @@ func (lrb *leastRequestBalancer) UpdateState(state balancer.State) {
 	// Copy refs to counters into picker.
 	endpointStates := make([]endpointState, 0, len(readyEndpoints))
 	for _, child := range readyEndpoints {
-		counter, ok := lrb.endpointRPCCounts.Get(child.Endpoint)
-		if !ok {
+		var counter *atomic.Int32
+		if val, ok := lrb.endpointRPCCounts.Get(child.Endpoint); !ok {
 			// Create new counts if needed.
 			counter = new(atomic.Int32)
 			lrb.endpointRPCCounts.Set(child.Endpoint, counter)
+		} else {
+			counter = val.(*atomic.Int32)
 		}
 		endpointStates = append(endpointStates, endpointState{
 			picker:  child.State.Picker,
