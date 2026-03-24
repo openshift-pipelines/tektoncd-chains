@@ -25,7 +25,6 @@ type Job struct {
 	FinishedAt         string                     `json:"finished_at,omitempty"`
 	RunnableAt         string                     `json:"runnable_at,omitempty"`
 	ChunksFailedCount  int                        `json:"chunks_failed_count,omitempty"`
-	TraceParent        string                     `json:"traceparent"`
 }
 
 type JobState struct {
@@ -36,13 +35,12 @@ type jobStartRequest struct {
 	StartedAt string `json:"started_at,omitempty"`
 }
 
-type JobFinishRequest struct {
-	ExitStatus              string `json:"exit_status,omitempty"`
-	Signal                  string `json:"signal,omitempty"`
-	SignalReason            string `json:"signal_reason,omitempty"`
-	FinishedAt              string `json:"finished_at,omitempty"`
-	ChunksFailedCount       int    `json:"chunks_failed_count"`
-	IgnoreAgentInDispatches *bool  `json:"ignore_agent_in_dispatches,omitempty"`
+type jobFinishRequest struct {
+	ExitStatus        string `json:"exit_status,omitempty"`
+	Signal            string `json:"signal,omitempty"`
+	SignalReason      string `json:"signal_reason,omitempty"`
+	FinishedAt        string `json:"finished_at,omitempty"`
+	ChunksFailedCount int    `json:"chunks_failed_count"`
 }
 
 // GetJobState returns the state of a given job
@@ -116,16 +114,15 @@ func (c *Client) StartJob(ctx context.Context, job *Job) (*Response, error) {
 }
 
 // FinishJob finishes the passed in job
-func (c *Client) FinishJob(ctx context.Context, job *Job, ignoreAgentInDispatches *bool) (*Response, error) {
+func (c *Client) FinishJob(ctx context.Context, job *Job) (*Response, error) {
 	u := fmt.Sprintf("jobs/%s/finish", railsPathEscape(job.ID))
 
-	req, err := c.newRequest(ctx, "PUT", u, &JobFinishRequest{
-		FinishedAt:              job.FinishedAt,
-		ExitStatus:              job.ExitStatus,
-		Signal:                  job.Signal,
-		SignalReason:            job.SignalReason,
-		ChunksFailedCount:       job.ChunksFailedCount,
-		IgnoreAgentInDispatches: ignoreAgentInDispatches,
+	req, err := c.newRequest(ctx, "PUT", u, &jobFinishRequest{
+		FinishedAt:        job.FinishedAt,
+		ExitStatus:        job.ExitStatus,
+		Signal:            job.Signal,
+		SignalReason:      job.SignalReason,
+		ChunksFailedCount: job.ChunksFailedCount,
 	})
 	if err != nil {
 		return nil, err
