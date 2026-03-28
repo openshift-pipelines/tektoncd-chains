@@ -117,7 +117,7 @@ type produceHolder struct {
 type shutdownProducer struct{}
 
 // produce returns an ErrReaderShutdown error.
-func (shutdownProducer) produce(context.Context, *metricdata.ResourceMetrics) error {
+func (p shutdownProducer) produce(context.Context, *metricdata.ResourceMetrics) error {
 	return ErrReaderShutdown
 }
 
@@ -146,10 +146,7 @@ type AggregationSelector func(InstrumentKind) Aggregation
 // Histogram ⇨ ExplicitBucketHistogram.
 func DefaultAggregationSelector(ik InstrumentKind) Aggregation {
 	switch ik {
-	case InstrumentKindCounter,
-		InstrumentKindUpDownCounter,
-		InstrumentKindObservableCounter,
-		InstrumentKindObservableUpDownCounter:
+	case InstrumentKindCounter, InstrumentKindUpDownCounter, InstrumentKindObservableCounter, InstrumentKindObservableUpDownCounter:
 		return AggregationSum{}
 	case InstrumentKindObservableGauge, InstrumentKindGauge:
 		return AggregationLastValue{}
