@@ -4,11 +4,10 @@ import "context"
 
 // Ping represents a Buildkite Agent API Ping
 type Ping struct {
-	Action         string            `json:"action,omitempty"`
-	Message        string            `json:"message,omitempty"`
-	Job            *Job              `json:"job,omitempty"`
-	Endpoint       string            `json:"endpoint,omitempty"`
-	RequestHeaders map[string]string `json:"request_headers,omitzero"` // omit nil, keep empty map
+	Action   string `json:"action,omitempty"`
+	Message  string `json:"message,omitempty"`
+	Job      *Job   `json:"job,omitempty"`
+	Endpoint string `json:"endpoint,omitempty"`
 }
 
 // Pings the API and returns any work the client needs to perform
@@ -23,9 +22,6 @@ func (c *Client) Ping(ctx context.Context) (*Ping, *Response, error) {
 	if err != nil {
 		return nil, resp, err
 	}
-
-	// If Buildkite told us to use Buildkite-* request headers, store those
-	c.setRequestHeaders(ping.RequestHeaders)
 
 	return ping, resp, err
 }
