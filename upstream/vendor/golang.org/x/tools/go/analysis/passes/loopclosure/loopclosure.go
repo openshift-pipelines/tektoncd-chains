@@ -11,9 +11,10 @@ import (
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
+	"golang.org/x/tools/go/analysis/passes/internal/analysisutil"
 	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/types/typeutil"
-	"golang.org/x/tools/internal/analysis/analyzerutil"
+	"golang.org/x/tools/internal/analysisinternal"
 	"golang.org/x/tools/internal/typesinternal"
 	"golang.org/x/tools/internal/versions"
 )
@@ -23,7 +24,7 @@ var doc string
 
 var Analyzer = &analysis.Analyzer{
 	Name:     "loopclosure",
-	Doc:      analyzerutil.MustExtractDoc(doc, "loopclosure"),
+	Doc:      analysisutil.MustExtractDoc(doc, "loopclosure"),
 	URL:      "https://pkg.go.dev/golang.org/x/tools/go/analysis/passes/loopclosure",
 	Requires: []*analysis.Analyzer{inspect.Analyzer},
 	Run:      run,
@@ -55,8 +56,8 @@ func run(pass *analysis.Pass) (any, error) {
 		switch n := n.(type) {
 		case *ast.File:
 			// Only traverse the file if its goversion is strictly before go1.22.
-			return !analyzerutil.FileUsesGoVersion(pass, n, versions.Go1_22)
-
+			goversion := versions.FileVersion(pass.TypesInfo, n)
+			return versions.Before(goversion, versions.Go1_22)
 		case *ast.RangeStmt:
 			body = n.Body
 			addVar(n.Key)
@@ -87,7 +88,7 @@ func run(pass *analysis.Pass) (any, error) {
 		//
 		// TODO: consider allowing the "last" go/defer/Go statement to be followed by
 		// N "trivial" statements, possibly under a recursive definition of "trivial"
-		// so that checker could, for example, conclude that a go statement is
+		// so that that checker could, for example, conclude that a go statement is
 		// followed by an if statement made of only trivial statements and trivial expressions,
 		// and hence the go statement could still be checked.
 		forEachLastStmt(body.List, func(last ast.Stmt) {
@@ -308,11 +309,12 @@ func parallelSubtest(info *types.Info, call *ast.CallExpr) []ast.Stmt {
 		if !ok {
 			continue
 		}
-		call, ok := exprStmt.X.(*ast.CallExpr)
-		if !ok {
-			continue
-		}
-		if isMethodCall(info, call, "testing", "T", "Parallel") {
+		expr := exprStmt.X
+		if isMethodCall(info, expr, "testing", "T", "Parallel") {
+			call, _ := expr.(*ast.CallExpr)
+			if call == nil {
+				continue
+			}
 			x, _ := call.Fun.(*ast.SelectorExpr)
 			if x == nil {
 				continue
@@ -346,6 +348,26 @@ func unlabel(stmt ast.Stmt) (ast.Stmt, bool) {
 	}
 }
 
-func isMethodCall(info *types.Info, call *ast.CallExpr, pkgPath, typeName, method string) bool {
-	return typesinternal.IsMethodNamed(typeutil.Callee(info, call), pkgPath, typeName, method)
+// isMethodCall reports whether expr is a method call of
+// <pkgPath>.<typeName>.<method>.
+func isMethodCall(info *types.Info, expr ast.Expr, pkgPath, typeName, method string) bool {
+	call, ok := expr.(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+
+	// Check that we are calling a method <method>
+	f := typeutil.StaticCallee(info, call)
+	if f == nil || f.Name() != method {
+		return false
+	}
+	recv := f.Type().(*types.Signature).Recv()
+	if recv == nil {
+		return false
+	}
+
+	// Check that the receiver is a <pkgPath>.<typeName> or
+	// *<pkgPath>.<typeName>.
+	_, named := typesinternal.ReceiverNamed(recv)
+	return analysisinternal.IsTypeNamed(named, pkgPath, typeName)
 }

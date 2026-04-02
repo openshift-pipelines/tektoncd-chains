@@ -30,7 +30,6 @@ import (
 	"cloud.google.com/go/auth/credentials"
 	"cloud.google.com/go/auth/internal"
 	"cloud.google.com/go/auth/internal/transport"
-	"cloud.google.com/go/auth/internal/transport/headers"
 	"github.com/googleapis/gax-go/v2/internallog"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
@@ -305,18 +304,17 @@ func dial(ctx context.Context, secure bool, opts *Options) (*grpc.ClientConn, er
 			// This condition is only met for non-DirectPath clients because
 			// TransportTypeMTLSS2A is used only when InternalOptions.EnableDirectPath
 			// is false.
-			optsClone := opts.resolveDetectOptions()
 			if transportCreds.TransportType == transport.TransportTypeMTLSS2A {
 				// Check that the client allows requesting hard-bound token for the transport type mTLS using S2A.
 				for _, ev := range opts.InternalOptions.AllowHardBoundTokens {
 					if ev == "MTLS_S2A" {
-						optsClone.TokenBindingType = credentials.MTLSHardBinding
+						opts.DetectOpts.TokenBindingType = credentials.MTLSHardBinding
 						break
 					}
 				}
 			}
 			var err error
-			creds, err = credentials.DetectDefault(optsClone)
+			creds, err = credentials.DetectDefault(opts.resolveDetectOptions())
 			if err != nil {
 				return nil, err
 			}
@@ -429,11 +427,21 @@ func (c *grpcCredentialsProvider) GetRequestMetadata(ctx context.Context, uri ..
 		}
 	}
 	metadata := make(map[string]string, len(c.metadata)+1)
-	headers.SetAuthMetadata(token, metadata)
+	setAuthMetadata(token, metadata)
 	for k, v := range c.metadata {
 		metadata[k] = v
 	}
 	return metadata, nil
+}
+
+// setAuthMetadata uses the provided token to set the Authorization metadata.
+// If the token.Type is empty, the type is assumed to be Bearer.
+func setAuthMetadata(token *auth.Token, m map[string]string) {
+	typ := token.Type
+	if typ == "" {
+		typ = internal.TokenTypeBearer
+	}
+	m["authorization"] = typ + " " + token.Value
 }
 
 func (c *grpcCredentialsProvider) RequireTransportSecurity() bool {
