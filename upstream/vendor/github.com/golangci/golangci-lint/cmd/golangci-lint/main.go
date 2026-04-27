@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cmp"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -14,61 +13,33 @@ var (
 	goVersion = "unknown"
 
 	// Populated by goreleaser during build
-	version = "unknown"
+	version = "master"
 	commit  = "?"
 	date    = ""
 )
 
 func main() {
-	info := createBuildInfo()
+	if buildInfo, available := debug.ReadBuildInfo(); available {
+		goVersion = buildInfo.GoVersion
 
-	if err := commands.Execute(info); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "Failed executing command with error: %v\n", err)
-		os.Exit(exitcodes.Failure)
-	}
-}
-
-func createBuildInfo() commands.BuildInfo {
-	info := commands.BuildInfo{
-		Commit:    commit,
-		Version:   version,
-		GoVersion: goVersion,
-		Date:      date,
-	}
-
-	buildInfo, available := debug.ReadBuildInfo()
-	if !available {
-		return info
-	}
-
-	info.GoVersion = buildInfo.GoVersion
-
-	if date != "" {
-		return info
-	}
-
-	info.Version = buildInfo.Main.Version
-
-	var revision string
-	var modified string
-	for _, setting := range buildInfo.Settings {
-		// The `vcs.xxx` information is only available with `go build`.
-		// This information is not available with `go install` or `go run`.
-		switch setting.Key {
-		case "vcs.time":
-			info.Date = setting.Value
-		case "vcs.revision":
-			revision = setting.Value
-		case "vcs.modified":
-			modified = setting.Value
+		if date == "" {
+			version = buildInfo.Main.Version
+			commit = fmt.Sprintf("(unknown, mod sum: %q)", buildInfo.Main.Sum)
+			date = "(unknown)"
 		}
 	}
 
-	revision = cmp.Or(revision, "unknown")
-	modified = cmp.Or(modified, "?")
-	info.Date = cmp.Or(info.Date, "(unknown)")
+	info := commands.BuildInfo{
+		GoVersion: goVersion,
+		Version:   version,
+		Commit:    commit,
+		Date:      date,
+	}
 
-	info.Commit = fmt.Sprintf("(%s, modified: %s, mod sum: %q)", revision, modified, buildInfo.Main.Sum)
+	e := commands.NewExecutor(info)
 
-	return info
+	if err := e.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "failed executing command with error %v\n", err)
+		os.Exit(exitcodes.Failure)
+	}
 }

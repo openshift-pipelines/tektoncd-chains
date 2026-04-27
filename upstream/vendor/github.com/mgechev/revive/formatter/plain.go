@@ -2,7 +2,6 @@ package formatter
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/mgechev/revive/lint"
 )
@@ -20,9 +19,8 @@ func (*Plain) Name() string {
 
 // Format formats the failures gotten from the lint.
 func (*Plain) Format(failures <-chan lint.Failure, _ lint.Config) (string, error) {
-	var sb strings.Builder
 	for failure := range failures {
-		sb.WriteString(fmt.Sprintf("%v: %s %s\n", failure.Position.Start, failure.Failure, ruleDescriptionURL(failure.RuleName)))
+		fmt.Printf("%v: %s %s\n", failure.Position.Start, failure.Failure, "https://revive.run/r#"+failure.RuleName)
 	}
-	return sb.String(), nil
+	return "", nil
 }

@@ -19,27 +19,24 @@ import (
 	"log"
 	"testing"
 
-	intoto "github.com/in-toto/attestation/go/v1"
+	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/tektoncd/chains/pkg/chains/formats"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/config"
-	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"gocloud.dev/pubsub"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	logtesting "knative.dev/pkg/logging/testing"
 	rtesting "knative.dev/pkg/reconciler/testing"
 )
 
 func TestBackend_StorePayload(t *testing.T) {
 	// pretty much anything that has no Subject
-	sampleIntotoStatementBytes, err := json.Marshal(intoto.Statement{})
-	if err != nil {
-		t.Fatalf("error getting statement: %v", err)
-	}
+	sampleIntotoStatementBytes, _ := json.Marshal(in_toto.Statement{})
 	logger := logtesting.TestLogger(t)
 
 	type fields struct {
-		tr  *v1.TaskRun
+		tr  *v1beta1.TaskRun //nolint:staticcheck
 		cfg config.Config
 	}
 	type args struct {
@@ -56,8 +53,8 @@ func TestBackend_StorePayload(t *testing.T) {
 		{
 			name: "no subject",
 			fields: fields{
-				tr: &v1.TaskRun{
-					ObjectMeta: metav1.ObjectMeta{
+				tr: &v1beta1.TaskRun{ //nolint:staticcheck
+					ObjectMeta: v1.ObjectMeta{
 						Name:      "foo",
 						Namespace: "bar",
 					},
@@ -112,7 +109,7 @@ func TestBackend_StorePayload(t *testing.T) {
 				}
 			}()
 
-			trObj := objects.NewTaskRunObjectV1(tt.fields.tr)
+			trObj := objects.NewTaskRunObjectV1Beta1(tt.fields.tr)
 			// Store the payload.
 			if err := b.StorePayload(ctx, trObj, tt.args.rawPayload, tt.args.signature, tt.args.storageOpts); (err != nil) != tt.wantErr {
 				t.Errorf("Backend.StorePayload() error = %v, wantErr %v", err, tt.wantErr)

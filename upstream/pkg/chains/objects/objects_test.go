@@ -20,8 +20,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
 	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+func getPullSecretTemplate(pullSecret string) *pod.PodTemplate {
+	return &pod.PodTemplate{
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{
+				Name: pullSecret,
+			},
+		},
+	}
+}
 
 func getEmptyTemplate() *pod.PodTemplate {
 	return &pod.PodTemplate{}
@@ -134,6 +145,77 @@ func getPipelineRun() *v1.PipelineRun {
 	}
 }
 
+func TestTaskRun_ImagePullSecrets(t *testing.T) {
+	pullSecret := "pull-secret"
+
+	tests := []struct {
+		name     string
+		template *pod.PodTemplate
+		want     []string
+	}{
+		{
+			name:     "Test pull secret found",
+			template: getPullSecretTemplate(pullSecret),
+			want:     []string{pullSecret},
+		},
+		{
+			name:     "Test pull secret missing",
+			template: nil,
+			want:     []string{},
+		},
+		{
+			name:     "Test podTemplate missing",
+			template: getEmptyTemplate(),
+			want:     []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tr := NewTaskRunObjectV1(getTaskRun())
+			tr.Spec.PodTemplate = tt.template
+			secret := tr.GetPullSecrets()
+			assert.ElementsMatch(t, secret, tt.want)
+		})
+	}
+
+}
+
+func TestPipelineRun_ImagePullSecrets(t *testing.T) {
+	pullSecret := "pull-secret"
+
+	tests := []struct {
+		name     string
+		template *pod.PodTemplate
+		want     []string
+	}{
+		{
+			name:     "Test pull secret found",
+			template: getPullSecretTemplate(pullSecret),
+			want:     []string{pullSecret},
+		},
+		{
+			name:     "Test pull secret missing",
+			template: nil,
+			want:     []string{},
+		},
+		{
+			name:     "Test podTemplate missing",
+			template: getEmptyTemplate(),
+			want:     []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pr := NewPipelineRunObjectV1(getPipelineRun())
+			pr.Spec.TaskRunTemplate.PodTemplate = tt.template
+			secret := pr.GetPullSecrets()
+			assert.ElementsMatch(t, secret, tt.want)
+		})
+	}
+}
+
 func TestPipelineRun_GetProvenance(t *testing.T) {
 
 	t.Run("TestPipelineRun_GetProvenance", func(t *testing.T) {
@@ -178,15 +260,15 @@ func TestPipelineRun_GetResults(t *testing.T) {
 		pr := NewPipelineRunObjectV1(getPipelineRun())
 		got := pr.GetResults()
 		assert.ElementsMatch(t, got, []Result{
-			{
+			Result{
 				Name: "img1_input_ARTIFACT_INPUTS",
 				Value: *v1.NewObject(map[string]string{
 					"uri":    "gcr.io/foo/bar",
 					"digest": "sha256:05f95b26ed10668b7183c1e2da98610e91372fa9f510046d4ce5812addad86b7",
 				}),
 			},
-			{Name: "mvn1_ARTIFACT_URI", Value: *v1.NewStructuredValues("projects/test-project/locations/us-west4/repositories/test-repo/mavenArtifacts/com.google.guava:guava:31.0-jre")},
-			{Name: "mvn1_ARTIFACT_DIGEST", Value: *v1.NewStructuredValues("sha256:05f95b26ed10668b7183c1e2da98610e91372fa9f510046d4ce5812addad86b5")},
+			Result{Name: "mvn1_ARTIFACT_URI", Value: *v1.NewStructuredValues("projects/test-project/locations/us-west4/repositories/test-repo/mavenArtifacts/com.google.guava:guava:31.0-jre")},
+			Result{Name: "mvn1_ARTIFACT_DIGEST", Value: *v1.NewStructuredValues("sha256:05f95b26ed10668b7183c1e2da98610e91372fa9f510046d4ce5812addad86b5")},
 		})
 	})
 
@@ -276,17 +358,16 @@ func TestNewTektonObject(t *testing.T) {
 	assert.ErrorContains(t, err, "unrecognized type")
 }
 
-func TestPipelineRun_GetTaskRunsFromTask(t *testing.T) {
+func TestPipelineRun_GetTaskRunFromTask(t *testing.T) {
 	pro := NewPipelineRunObjectV1(getPipelineRun())
 
-	assert.Nil(t, pro.GetTaskRunsFromTask("missing"))
-	assert.Nil(t, pro.GetTaskRunsFromTask("foo-task"))
+	assert.Nil(t, pro.GetTaskRunFromTask("missing"))
+	assert.Nil(t, pro.GetTaskRunFromTask("foo-task"))
 
 	pro.AppendTaskRun(getTaskRun())
-	assert.Nil(t, pro.GetTaskRunsFromTask("missing"))
-	taskRuns := pro.GetTaskRunsFromTask("foo-task")
-	assert.NotEmpty(t, taskRuns)
-	assert.Equal(t, "foo", taskRuns[0].Name)
+	assert.Nil(t, pro.GetTaskRunFromTask("missing"))
+	tr := pro.GetTaskRunFromTask("foo-task")
+	assert.Equal(t, "foo", tr.Name)
 }
 
 func TestProvenanceExists(t *testing.T) {

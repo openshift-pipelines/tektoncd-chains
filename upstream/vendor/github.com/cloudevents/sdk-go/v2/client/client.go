@@ -38,18 +38,15 @@ type Client interface {
 	// * func()
 	// * func() error
 	// * func(context.Context)
-	// * func(context.Context) error
+	// * func(context.Context) protocol.Result
 	// * func(event.Event)
-	// * func(event.Event) error
+	// * func(event.Event) protocol.Result
 	// * func(context.Context, event.Event)
-	// * func(context.Context, event.Event) error
+	// * func(context.Context, event.Event) protocol.Result
 	// * func(event.Event) *event.Event
-	// * func(event.Event) (*event.Event, error)
+	// * func(event.Event) (*event.Event, protocol.Result)
 	// * func(context.Context, event.Event) *event.Event
-	// * func(context.Context, event.Event) (*event.Event, error)
-	// The error returned may impact the messages processing made by the protocol
-	// used (example: message acknowledgement). Please refer to each protocol's
-	// package documentation of the function "Finish(err error) error".
+	// * func(context.Context, event.Event) (*event.Event, protocol.Result)
 	StartReceiver(ctx context.Context, fn interface{}) error
 }
 
@@ -101,7 +98,6 @@ type ceClient struct {
 	eventDefaulterFns         []EventDefaulter
 	pollGoroutines            int
 	blockingCallback          bool
-	ackMalformedEvent         bool
 }
 
 func (c *ceClient) applyOptions(opts ...Option) error {
@@ -206,13 +202,7 @@ func (c *ceClient) StartReceiver(ctx context.Context, fn interface{}) error {
 		return fmt.Errorf("client already has a receiver")
 	}
 
-	invoker, err := newReceiveInvoker(
-		fn,
-		c.observabilityService,
-		c.inboundContextDecorators,
-		c.eventDefaulterFns,
-		c.ackMalformedEvent,
-	)
+	invoker, err := newReceiveInvoker(fn, c.observabilityService, c.inboundContextDecorators, c.eventDefaulterFns...)
 	if err != nil {
 		return err
 	}

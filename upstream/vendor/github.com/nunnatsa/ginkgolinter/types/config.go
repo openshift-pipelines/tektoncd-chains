@@ -1,8 +1,9 @@
 package types
 
 import (
-	"go/ast"
 	"strings"
+
+	"go/ast"
 )
 
 const (
@@ -17,38 +18,30 @@ const (
 )
 
 type Config struct {
-	SuppressLen            bool
-	SuppressNil            bool
-	SuppressErr            bool
-	SuppressCompare        bool
-	SuppressAsync          bool
-	ForbidFocus            bool
-	SuppressTypeCompare    bool
-	AllowHaveLen0          bool
-	ForceExpectTo          bool
-	ValidateAsyncIntervals bool
-	ForbidSpecPollution    bool
-	ForceSucceedForFuncs   bool
+	SuppressLen         Boolean
+	SuppressNil         Boolean
+	SuppressErr         Boolean
+	SuppressCompare     Boolean
+	SuppressAsync       Boolean
+	ForbidFocus         Boolean
+	SuppressTypeCompare Boolean
+	AllowHaveLen0       Boolean
 }
 
 func (s *Config) AllTrue() bool {
-	return s.SuppressLen && s.SuppressNil && s.SuppressErr && s.SuppressCompare && s.SuppressAsync && !s.ForbidFocus
+	return bool(s.SuppressLen && s.SuppressNil && s.SuppressErr && s.SuppressCompare && s.SuppressAsync && !s.ForbidFocus)
 }
 
 func (s *Config) Clone() Config {
 	return Config{
-		SuppressLen:            s.SuppressLen,
-		SuppressNil:            s.SuppressNil,
-		SuppressErr:            s.SuppressErr,
-		SuppressCompare:        s.SuppressCompare,
-		SuppressAsync:          s.SuppressAsync,
-		ForbidFocus:            s.ForbidFocus,
-		SuppressTypeCompare:    s.SuppressTypeCompare,
-		AllowHaveLen0:          s.AllowHaveLen0,
-		ForceExpectTo:          s.ForceExpectTo,
-		ValidateAsyncIntervals: s.ValidateAsyncIntervals,
-		ForbidSpecPollution:    s.ForbidSpecPollution,
-		ForceSucceedForFuncs:   s.ForceSucceedForFuncs,
+		SuppressLen:         s.SuppressLen,
+		SuppressNil:         s.SuppressNil,
+		SuppressErr:         s.SuppressErr,
+		SuppressCompare:     s.SuppressCompare,
+		SuppressAsync:       s.SuppressAsync,
+		ForbidFocus:         s.ForbidFocus,
+		SuppressTypeCompare: s.SuppressTypeCompare,
+		AllowHaveLen0:       s.AllowHaveLen0,
 	}
 }
 

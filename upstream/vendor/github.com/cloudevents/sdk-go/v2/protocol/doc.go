@@ -15,11 +15,12 @@ components like importers, channels or brokers.
 Available protocols:
 
 * HTTP (using net/http)
-* Kafka (using github.com/IBM/sarama)
+* Kafka (using github.com/Shopify/sarama)
 * AMQP (using pack.ag/amqp)
 * Go Channels
 * Nats
 * Nats Streaming (stan)
 * Google PubSub
+
 */
 package protocol
