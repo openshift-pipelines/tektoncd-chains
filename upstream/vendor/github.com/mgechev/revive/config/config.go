@@ -1,4 +1,3 @@
-// Package config implements revive's configuration data structures and related methods
 package config
 
 import (
@@ -6,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BurntSushi/toml"
-
 	"github.com/mgechev/revive/formatter"
+
+	"github.com/BurntSushi/toml"
 	"github.com/mgechev/revive/lint"
 	"github.com/mgechev/revive/rule"
 )
@@ -55,7 +54,7 @@ var allRules = append([]lint.Rule{
 	&rule.ModifiesValRecRule{},
 	&rule.ConstantLogicalExprRule{},
 	&rule.BoolLiteralRule{},
-	&rule.ImportsBlocklistRule{},
+	&rule.ImportsBlacklistRule{},
 	&rule.FunctionResultsLimitRule{},
 	&rule.MaxPublicStructsRule{},
 	&rule.RangeValInClosureRule{},
@@ -92,29 +91,18 @@ var allRules = append([]lint.Rule{
 	&rule.RedundantImportAlias{},
 	&rule.ImportAliasNamingRule{},
 	&rule.EnforceMapStyleRule{},
-	&rule.EnforceRepeatedArgTypeStyleRule{},
-	&rule.EnforceSliceStyleRule{},
-	&rule.MaxControlNestingRule{},
-	&rule.CommentsDensityRule{},
-	&rule.FileLengthLimitRule{},
-	&rule.FilenameFormatRule{},
-	&rule.RedundantBuildTagRule{},
-	&rule.UseErrorsNewRule{},
-	&rule.RedundantTestMainExitRule{},
 }, defaultRules...)
 
-// allFormatters is a list of all available formatters to output the linting results.
-// Keep the list sorted and in sync with available formatters in README.md.
 var allFormatters = []lint.Formatter{
-	&formatter.Checkstyle{},
-	&formatter.Default{},
+	&formatter.Stylish{},
 	&formatter.Friendly{},
 	&formatter.JSON{},
 	&formatter.NDJSON{},
+	&formatter.Default{},
+	&formatter.Unix{},
+	&formatter.Checkstyle{},
 	&formatter.Plain{},
 	&formatter.Sarif{},
-	&formatter.Stylish{},
-	&formatter.Unix{},
 }
 
 func getFormatters() map[string]lint.Formatter {
@@ -140,8 +128,7 @@ func GetLintingRules(config *lint.Config, extraRules []lint.Rule) ([]lint.Rule, 
 
 	var lintingRules []lint.Rule
 	for name, ruleConfig := range config.Rules {
-		actualName := actualRuleName(name)
-		r, ok := rulesMap[actualName]
+		r, ok := rulesMap[name]
 		if !ok {
 			return nil, fmt.Errorf("cannot find rule: %s", name)
 		}
@@ -150,25 +137,10 @@ func GetLintingRules(config *lint.Config, extraRules []lint.Rule) ([]lint.Rule, 
 			continue // skip disabled rules
 		}
 
-		if r, ok := r.(lint.ConfigurableRule); ok {
-			if err := r.Configure(ruleConfig.Arguments); err != nil {
-				return nil, fmt.Errorf("cannot configure rule: %q: %w", name, err)
-			}
-		}
-
 		lintingRules = append(lintingRules, r)
 	}
 
 	return lintingRules, nil
-}
-
-func actualRuleName(name string) string {
-	switch name {
-	case "imports-blacklist":
-		return "imports-blocklist"
-	default:
-		return name
-	}
 }
 
 func parseConfig(path string, config *lint.Config) error {
@@ -176,14 +148,14 @@ func parseConfig(path string, config *lint.Config) error {
 	if err != nil {
 		return errors.New("cannot read the config file")
 	}
-	err = toml.Unmarshal(file, config)
+	_, err = toml.Decode(string(file), config)
 	if err != nil {
-		return fmt.Errorf("cannot parse the config file: %w", err)
+		return fmt.Errorf("cannot parse the config file: %v", err)
 	}
 	for k, r := range config.Rules {
 		err := r.Initialize()
 		if err != nil {
-			return fmt.Errorf("error in config of rule [%s] : [%w]", k, err)
+			return fmt.Errorf("error in config of rule [%s] : [%v]", k, err)
 		}
 		config.Rules[k] = r
 	}
@@ -249,14 +221,15 @@ func GetConfig(configPath string) (*lint.Config, error) {
 // GetFormatter yields the formatter for lint failures
 func GetFormatter(formatterName string) (lint.Formatter, error) {
 	formatters := getFormatters()
-	if formatterName == "" {
-		return formatters["default"], nil
+	fmtr := formatters["default"]
+	if formatterName != "" {
+		f, ok := formatters[formatterName]
+		if !ok {
+			return nil, fmt.Errorf("unknown formatter %v", formatterName)
+		}
+		fmtr = f
 	}
-	f, ok := formatters[formatterName]
-	if !ok {
-		return nil, fmt.Errorf("unknown formatter %v", formatterName)
-	}
-	return f, nil
+	return fmtr, nil
 }
 
 func defaultConfig() *lint.Config {

@@ -1,147 +1,166 @@
 package processors
 
 import (
-	"cmp"
-	"fmt"
-	"slices"
+	"sort"
 	"strings"
 
 	"github.com/golangci/golangci-lint/pkg/config"
 	"github.com/golangci/golangci-lint/pkg/result"
 )
 
-const (
-	orderNameFile     = "file"
-	orderNameLinter   = "linter"
-	orderNameSeverity = "severity"
-)
-
-const (
-	less = iota - 1
-	equal
-	greater
-)
+// Base propose of this functionality to sort results (issues)
+// produced by various linters by analyzing code. We're achieving this
+// by sorting results.Issues using processor step, and chain based
+// rules that can compare different properties of the Issues struct.
 
 var _ Processor = (*SortResults)(nil)
 
-type issueComparator func(a, b *result.Issue) int
-
-// SortResults sorts reports based on criteria:
-//   - file names, line numbers, positions
-//   - linter names
-//   - severity names
 type SortResults struct {
-	cmps map[string][]issueComparator
-
-	cfg *config.Output
+	cmp comparator
+	cfg *config.Config
 }
 
-func NewSortResults(cfg *config.Output) *SortResults {
+func NewSortResults(cfg *config.Config) *SortResults {
+	// For sorting we are comparing (in next order): file names, line numbers,
+	// position, and finally - giving up.
 	return &SortResults{
-		cmps: map[string][]issueComparator{
-			// For sorting we are comparing (in next order):
-			// file names, line numbers, position, and finally - giving up.
-			orderNameFile: {byFileName, byLine, byColumn},
-			// For sorting we are comparing: linter name
-			orderNameLinter: {byLinter},
-			// For sorting we are comparing: severity
-			orderNameSeverity: {bySeverity},
+		cmp: ByName{
+			next: ByLine{
+				next: ByColumn{},
+			},
 		},
 		cfg: cfg,
 	}
 }
 
-func (SortResults) Name() string { return "sort_results" }
-
 // Process is performing sorting of the result issues.
-func (p SortResults) Process(issues []result.Issue) ([]result.Issue, error) {
-	if !p.cfg.SortResults {
+func (sr SortResults) Process(issues []result.Issue) ([]result.Issue, error) {
+	if !sr.cfg.Output.SortResults {
 		return issues, nil
 	}
 
-	if len(p.cfg.SortOrder) == 0 {
-		p.cfg.SortOrder = []string{orderNameFile}
-	}
-
-	var cmps []issueComparator
-
-	for _, name := range p.cfg.SortOrder {
-		c, ok := p.cmps[name]
-		if !ok {
-			return nil, fmt.Errorf("unsupported sort-order name %q", name)
-		}
-
-		cmps = append(cmps, c...)
-	}
-
-	comp := mergeComparators(cmps...)
-
-	slices.SortFunc(issues, func(a, b result.Issue) int {
-		return comp(&a, &b)
+	sort.Slice(issues, func(i, j int) bool {
+		return sr.cmp.Compare(&issues[i], &issues[j]) == Less
 	})
 
 	return issues, nil
 }
 
-func (SortResults) Finish() {}
+func (sr SortResults) Name() string { return "sort_results" }
+func (sr SortResults) Finish()      {}
 
-func byFileName(a, b *result.Issue) int {
-	return strings.Compare(a.FilePath(), b.FilePath())
+type compareResult int
+
+const (
+	Less compareResult = iota - 1
+	Equal
+	Greater
+	None
+)
+
+func (c compareResult) isNeutral() bool {
+	// return true if compare result is incomparable or equal.
+	return c == None || c == Equal
 }
 
-func byLine(a, b *result.Issue) int {
-	return numericCompare(a.Line(), b.Line())
-}
-
-func byColumn(a, b *result.Issue) int {
-	return numericCompare(a.Column(), b.Column())
-}
-
-func byLinter(a, b *result.Issue) int {
-	return strings.Compare(a.FromLinter, b.FromLinter)
-}
-
-func bySeverity(a, b *result.Issue) int {
-	return severityCompare(a.Severity, b.Severity)
-}
-
-func severityCompare(a, b string) int {
-	// The position inside the slice define the importance (lower to higher).
-	classic := []string{"low", "medium", "high", "warning", "error"}
-
-	if slices.Contains(classic, a) && slices.Contains(classic, b) {
-		return cmp.Compare(slices.Index(classic, a), slices.Index(classic, b))
+func (c compareResult) String() string {
+	switch c {
+	case Less:
+		return "Less"
+	case Equal:
+		return "Equal"
+	case Greater:
+		return "Greater"
 	}
 
-	if slices.Contains(classic, a) {
-		return greater
-	}
-
-	if slices.Contains(classic, b) {
-		return less
-	}
-
-	return strings.Compare(a, b)
+	return "None"
 }
 
-func numericCompare(a, b int) int {
-	// Negative values and zeros are skipped (equal) because they either invalid or  "neutral" (default int value).
-	if a <= 0 || b <= 0 {
-		return equal
-	}
-
-	return cmp.Compare(a, b)
+// comparator describe how to implement compare for two "issues" lexicographically
+type comparator interface {
+	Compare(a, b *result.Issue) compareResult
+	Next() comparator
 }
 
-func mergeComparators(comps ...issueComparator) issueComparator {
-	return func(a, b *result.Issue) int {
-		for _, comp := range comps {
-			i := comp(a, b)
-			if i != equal {
-				return i
-			}
-		}
+var (
+	_ comparator = (*ByName)(nil)
+	_ comparator = (*ByLine)(nil)
+	_ comparator = (*ByColumn)(nil)
+)
 
-		return equal
+type ByName struct{ next comparator }
+
+func (cmp ByName) Next() comparator { return cmp.next }
+
+func (cmp ByName) Compare(a, b *result.Issue) compareResult {
+	var res compareResult
+
+	if res = compareResult(strings.Compare(a.FilePath(), b.FilePath())); !res.isNeutral() {
+		return res
 	}
+
+	if next := cmp.Next(); next != nil {
+		return next.Compare(a, b)
+	}
+
+	return res
+}
+
+type ByLine struct{ next comparator }
+
+func (cmp ByLine) Next() comparator { return cmp.next }
+
+func (cmp ByLine) Compare(a, b *result.Issue) compareResult {
+	var res compareResult
+
+	if res = numericCompare(a.Line(), b.Line()); !res.isNeutral() {
+		return res
+	}
+
+	if next := cmp.Next(); next != nil {
+		return next.Compare(a, b)
+	}
+
+	return res
+}
+
+type ByColumn struct{ next comparator }
+
+func (cmp ByColumn) Next() comparator { return cmp.next }
+
+func (cmp ByColumn) Compare(a, b *result.Issue) compareResult {
+	var res compareResult
+
+	if res = numericCompare(a.Column(), b.Column()); !res.isNeutral() {
+		return res
+	}
+
+	if next := cmp.Next(); next != nil {
+		return next.Compare(a, b)
+	}
+
+	return res
+}
+
+func numericCompare(a, b int) compareResult {
+	var (
+		isValuesInvalid  = a < 0 || b < 0
+		isZeroValuesBoth = a == 0 && b == 0
+		isEqual          = a == b
+		isZeroValueInA   = b > 0 && a == 0
+		isZeroValueInB   = a > 0 && b == 0
+	)
+
+	switch {
+	case isZeroValuesBoth || isEqual:
+		return Equal
+	case isValuesInvalid || isZeroValueInA || isZeroValueInB:
+		return None
+	case a > b:
+		return Greater
+	case a < b:
+		return Less
+	}
+
+	return Equal
 }

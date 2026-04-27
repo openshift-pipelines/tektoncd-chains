@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 
-	"github.com/golangci/golangci-lint/pkg/logutils"
 	"github.com/golangci/golangci-lint/pkg/result"
 )
 
@@ -15,22 +15,16 @@ const (
 	largeLimit = 4000
 )
 
-const defaultTeamCitySeverity = "ERROR"
-
-// TeamCity prints issues in the TeamCity format.
-// https://www.jetbrains.com/help/teamcity/service-messages.html
+// TeamCity printer for TeamCity format.
 type TeamCity struct {
-	log       logutils.Log
-	w         io.Writer
-	escaper   *strings.Replacer
-	sanitizer severitySanitizer
+	w       io.Writer
+	escaper *strings.Replacer
 }
 
 // NewTeamCity output format outputs issues according to TeamCity service message format.
-func NewTeamCity(log logutils.Log, w io.Writer) *TeamCity {
+func NewTeamCity(w io.Writer) *TeamCity {
 	return &TeamCity{
-		log: log.Child(logutils.DebugKeyTeamCityPrinter),
-		w:   w,
+		w: w,
 		// https://www.jetbrains.com/help/teamcity/service-messages.html#Escaped+Values
 		escaper: strings.NewReplacer(
 			"'", "|'",
@@ -40,11 +34,6 @@ func NewTeamCity(log logutils.Log, w io.Writer) *TeamCity {
 			"[", "|[",
 			"]", "|]",
 		),
-		sanitizer: severitySanitizer{
-			// https://www.jetbrains.com/help/teamcity/service-messages.html#Inspection+Instance
-			allowedSeverities: []string{"INFO", defaultTeamCitySeverity, "WARNING", "WEAK WARNING"},
-			defaultSeverity:   defaultTeamCitySeverity,
-		},
 	}
 }
 
@@ -76,18 +65,13 @@ func (p *TeamCity) Print(issues []result.Issue) error {
 			message:  issue.Text,
 			file:     issue.FilePath(),
 			line:     issue.Line(),
-			severity: p.sanitizer.Sanitize(strings.ToUpper(issue.Severity)),
+			severity: issue.Severity,
 		}
 
 		_, err := instance.Print(p.w, p.escaper)
 		if err != nil {
 			return err
 		}
-	}
-
-	err := p.sanitizer.Err()
-	if err != nil {
-		p.log.Infof("%v", err)
 	}
 
 	return nil
@@ -104,8 +88,8 @@ type InspectionType struct {
 }
 
 func (i InspectionType) Print(w io.Writer, escaper *strings.Replacer) (int, error) {
-	return fmt.Fprintf(w, "##teamcity[inspectionType id='%s' name='%s' description='%s' category='%s']\n",
-		cutVal(i.id, smallLimit), cutVal(i.name, smallLimit), cutVal(escaper.Replace(i.description), largeLimit), cutVal(i.category, smallLimit))
+	return fmt.Fprintf(w, "##teamcity[InspectionType id='%s' name='%s' description='%s' category='%s']\n",
+		limit(i.id, smallLimit), limit(i.name, smallLimit), limit(escaper.Replace(i.description), largeLimit), limit(i.category, smallLimit))
 }
 
 // InspectionInstance reports a specific defect, warning, error message.
@@ -121,16 +105,18 @@ type InspectionInstance struct {
 
 func (i InspectionInstance) Print(w io.Writer, replacer *strings.Replacer) (int, error) {
 	return fmt.Fprintf(w, "##teamcity[inspection typeId='%s' message='%s' file='%s' line='%d' SEVERITY='%s']\n",
-		cutVal(i.typeID, smallLimit),
-		cutVal(replacer.Replace(i.message), largeLimit),
-		cutVal(i.file, largeLimit),
-		i.line, i.severity)
+		limit(i.typeID, smallLimit),
+		limit(replacer.Replace(i.message), largeLimit),
+		limit(i.file, largeLimit),
+		i.line, strings.ToUpper(i.severity))
 }
 
-func cutVal(s string, limit int) string {
-	runes := []rune(s)
-	if len(runes) > limit {
-		return string(runes[:limit])
+func limit(s string, max int) string {
+	var size, count int
+	for i := 0; i < max && count < len(s); i++ {
+		_, size = utf8.DecodeRuneInString(s[count:])
+		count += size
 	}
-	return s
+
+	return s[:count]
 }

@@ -61,24 +61,12 @@ func (r *filePermissions) Match(n ast.Node, c *gosec.Context) (*issue.Issue, err
 	for _, pkg := range r.pkgs {
 		if callexpr, matched := gosec.MatchCallByPackage(n, c, pkg, r.calls...); matched {
 			modeArg := callexpr.Args[len(callexpr.Args)-1]
-			if mode, err := gosec.GetInt(modeArg); err == nil && !modeIsSubset(mode, r.mode) || isOsPerm(modeArg) {
+			if mode, err := gosec.GetInt(modeArg); err == nil && !modeIsSubset(mode, r.mode) {
 				return c.NewIssue(n, r.ID(), r.What, r.Severity, r.Confidence), nil
 			}
 		}
 	}
 	return nil, nil
-}
-
-// isOsPerm check if the provide ast node contains a os.PermMode symbol
-func isOsPerm(n ast.Node) bool {
-	if node, ok := n.(*ast.SelectorExpr); ok {
-		if identX, ok := node.X.(*ast.Ident); ok {
-			if identX.Name == "os" && node.Sel != nil && node.Sel.Name == "ModePerm" {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // NewWritePerms creates a rule to detect file Writes with bad permissions.
@@ -157,7 +145,7 @@ func (r *osCreatePermissions) Match(n ast.Node, c *gosec.Context) (*issue.Issue,
 	return nil, nil
 }
 
-// NewOsCreatePerms creates a rule to detect file creation with a more permissive than configured
+// NewOsCreatePerms reates a rule to detect file creation with a more permissive than configured
 // permission mask.
 func NewOsCreatePerms(id string, conf gosec.Config) (gosec.Rule, []ast.Node) {
 	mode := getConfiguredMode(conf, id, 0o666)
