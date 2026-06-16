@@ -1,6 +1,7 @@
 ignore: |
   /vendor
   test/**/*-chart/**
+  rest/scm-resolver/gitea.yaml
 
 rules:
   braces: enable
@@ -30,7 +31,7 @@ rules:
   # accept both     key:
   #                   - item
   #
-  # and              key:
+  # and             key:
   #                 - item
   indentation:
     indent-sequences: whatever
