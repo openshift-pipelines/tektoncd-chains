@@ -127,7 +127,7 @@ func SPDXGit(url, revision string) string {
 		url = artifacts.GitSchemePrefix + url
 	}
 	if !strings.HasSuffix(url, ".git") {
-		url += ".git"
+		url = url + ".git"
 	}
 	if revision == "" {
 		return url
