@@ -1,6 +1,8 @@
 //go:build e2e
 // +build e2e
 
+// Package test contains end-to-end tests for Tekton Chains.
+
 /*
 Copyright 2019 The Tekton Authors
 
@@ -42,6 +44,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/tektoncd/chains/pkg/artifacts"
 	"github.com/tektoncd/chains/pkg/chains"
+	"github.com/tektoncd/chains/pkg/chains/annotations"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/chains/provenance"
 	"github.com/tektoncd/chains/pkg/test/tekton"
@@ -199,7 +202,7 @@ func TestRekor(t *testing.T) {
 				t.Fatal("object never signed")
 			}
 
-			if v, ok := obj.GetAnnotations()[chains.ChainsTransparencyAnnotation]; !ok || v == "" {
+			if v, ok := obj.GetAnnotations()[annotations.ChainsTransparencyAnnotation]; !ok || v == "" {
 				t.Fatal("failed to upload to tlog")
 			}
 
