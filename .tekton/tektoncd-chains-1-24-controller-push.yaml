@@ -35,10 +35,12 @@ spec:
     value: .konflux/dockerfiles/controller.Dockerfile
   - name: additional-tags
     value:
-      - "v1.24.0"
-  - name: prefetch-input
-    value: |
-      {"type": "rpm", "path": ".konflux/rpms"}
+      - "v1.24.0-RC-1"
+  - name: repo-name
+    value: "tektoncd-chains"
+  - name: slack-group-ids
+    value:
+      - "S050DUERQ4X"
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
