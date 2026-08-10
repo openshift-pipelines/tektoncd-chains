@@ -4,8 +4,8 @@ approvers:
 - anithapriyanatarajan
 - ab-ghosh
 - enarha
+- infernus01
 - jkhelil
-- lcarva
 - PuneetPunamiya
 - vdemeester
 - wlynch
@@ -15,8 +15,9 @@ reviewers:
 - aaron-prindle
 - ab-ghosh
 - enarha
+- infernus01
 - jkhelil
-- lcarva
+- ngelman1
 - PuneetPunamiya
 - vdemeester
 - waveywaves
@@ -31,3 +32,4 @@ emeritus_approvers:
 - chuangw6
 - chitrangpatel
 - priyawadhwa
+- lcarva
