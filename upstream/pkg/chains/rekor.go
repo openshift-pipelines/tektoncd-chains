@@ -23,6 +23,7 @@ import (
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
+	"github.com/tektoncd/chains/pkg/chains/annotations"
 	"github.com/tektoncd/chains/pkg/chains/formats"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/chains/signing"
@@ -47,7 +48,7 @@ func (r *rekor) UploadTlog(ctx context.Context, signer signing.Signer, signature
 		return nil, errors.Wrap(err, "public key or cert")
 	}
 	if _, ok := formats.IntotoAttestationSet[config.PayloadType(payloadFormat)]; ok {
-		return cosign.TLogUploadInTotoAttestation(ctx, r.c, signature, pkoc)
+		return cosign.TLogUploadDSSEEnvelope(ctx, r.c, signature, pkoc)
 	}
 
 	h := sha256.New()
@@ -94,7 +95,7 @@ func shouldUploadTlog(cfg config.Config, obj objects.TektonObject) bool {
 	}
 
 	// Already uploaded, don't do it again
-	if _, ok := obj.GetAnnotations()[ChainsTransparencyAnnotation]; ok {
+	if _, ok := obj.GetAnnotations()[annotations.ChainsTransparencyAnnotation]; ok {
 		return false
 	}
 

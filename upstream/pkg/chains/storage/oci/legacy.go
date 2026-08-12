@@ -15,9 +15,11 @@ package oci
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/tektoncd/chains/pkg/chains/formats"
 	"github.com/tektoncd/chains/pkg/chains/objects"
@@ -44,7 +46,6 @@ import (
 const StorageBackendOCI = "oci"
 
 // Backend implements a storage backend for OCI artifacts.
-//
 // Deprecated: Use SimpleStorer and AttestationStorer instead.
 type Backend struct {
 	cfg              config.Config
@@ -76,7 +77,7 @@ func NewStorageBackend(ctx context.Context, client kubernetes.Interface, cfg con
 // StorePayload implements the storage.Backend interface.
 func (b *Backend) StorePayload(ctx context.Context, obj objects.TektonObject, rawPayload []byte, signature string, storageOpts config.StorageOpts) error {
 	logger := logging.FromContext(ctx)
-	auth, err := b.getAuthenticator(ctx, obj, b.client)
+	remoteOpts, err := b.buildRemoteOptions(ctx, obj)
 	if err != nil {
 		return errors.Wrap(err, "getting oci authenticator")
 	}
@@ -88,7 +89,7 @@ func (b *Backend) StorePayload(ctx context.Context, obj objects.TektonObject, ra
 		if err := json.Unmarshal(rawPayload, &format); err != nil {
 			return errors.Wrap(err, "unmarshal simplesigning")
 		}
-		return b.uploadSignature(ctx, format, rawPayload, signature, storageOpts, auth)
+		return b.uploadSignature(ctx, format, rawPayload, signature, storageOpts, remoteOpts...)
 	}
 
 	if _, ok := formats.IntotoAttestationSet[storageOpts.PayloadFormat]; ok {
@@ -96,6 +97,16 @@ func (b *Backend) StorePayload(ctx context.Context, obj objects.TektonObject, ra
 		if err := json.Unmarshal(rawPayload, &attestation); err != nil {
 			return errors.Wrap(err, "unmarshal attestation")
 		}
+
+		// Extract predicate type from the raw JSON payload because it may be cleared
+		// during proto unmarshal.
+		var rawStmt struct {
+			PredicateType string `json:"predicateType"`
+		}
+		if err := json.Unmarshal(rawPayload, &rawStmt); err != nil {
+			return errors.Wrap(err, "extracting predicate type from raw payload")
+		}
+		attestation.PredicateType = rawStmt.PredicateType
 
 		// This can happen if the Task/TaskRun does not adhere to specific naming conventions
 		// like *IMAGE_URL that would serve as hints. This may be intentional for a Task/TaskRun
@@ -106,12 +117,34 @@ func (b *Backend) StorePayload(ctx context.Context, obj objects.TektonObject, ra
 			return nil
 		}
 
-		return b.uploadAttestation(ctx, &attestation, signature, storageOpts, auth)
+		return b.uploadAttestation(ctx, &attestation, rawPayload, signature, storageOpts, remoteOpts...)
 	}
 
 	// Fallback in case unsupported payload format is used or the deprecated "tekton" format
 	logger.Info("Skipping upload to OCI registry, OCI storage backend is only supported for OCI images and in-toto attestations")
 	return nil
+}
+
+// buildRemoteOptions build remote options for OCI storage backend
+func (b *Backend) buildRemoteOptions(ctx context.Context, obj objects.TektonObject) ([]remote.Option, error) {
+	opts := []remote.Option{}
+	auth, err := b.getAuthenticator(ctx, obj, b.client)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, auth)
+	if b.cfg.Storage.OCI.Insecure {
+		logger := logging.FromContext(ctx)
+		logger.Warn("Using insecure OCI registry connection. This skips TLS certificate verification and poses security risks. Only use this in testing or development environments.")
+		// InsecureSkipVerify is used only when explicitly configured for testing or development environments
+		// This is controlled by the user through configuration and should not be used in production
+		opts = append(opts, remote.WithTransport(&http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true, // #nosec G402
+			},
+		}))
+	}
+	return opts, nil
 }
 
 func (b *Backend) uploadSignature(ctx context.Context, format simple.SimpleContainerImage, rawPayload []byte, signature string, storageOpts config.StorageOpts, remoteOpts ...remote.Option) error {
@@ -120,7 +153,7 @@ func (b *Backend) uploadSignature(ctx context.Context, format simple.SimpleConta
 	imageName := format.ImageName()
 	logger.Infof("Uploading %s signature", imageName)
 
-	ref, err := name.NewDigest(imageName)
+	ref, err := name.NewDigest(imageName, nameOpts(b.cfg)...)
 	if err != nil {
 		return errors.Wrap(err, "getting digest")
 	}
@@ -130,21 +163,25 @@ func (b *Backend) uploadSignature(ctx context.Context, format simple.SimpleConta
 		return errors.Wrapf(err, "getting storage repo for sub %s", imageName)
 	}
 
-	store, err := NewSimpleStorerFromConfig(WithTargetRepository(repo))
+	store, err := NewSimpleStorerFromConfig(
+		WithTargetRepository(repo),
+		WithEncodingFormat(b.cfg.Storage.OCI.EncodingFormat),
+	)
 	if err != nil {
 		return err
 	}
-	// TODO: make these creation opts.
 	store.remoteOpts = remoteOpts
 	if _, err := store.Store(ctx, &api.StoreRequest[name.Digest, simple.SimpleContainerImage]{
 		Object:   nil,
 		Artifact: ref,
 		Payload:  format,
 		Bundle: &signing.Bundle{
-			Content:   rawPayload,
-			Signature: []byte(signature),
-			Cert:      []byte(storageOpts.Cert),
-			Chain:     []byte(storageOpts.Chain),
+			Content:    rawPayload,
+			Signature:  []byte(signature),
+			Cert:       []byte(storageOpts.Cert),
+			Chain:      []byte(storageOpts.Chain),
+			PublicKey:  storageOpts.PublicKey,
+			RekorEntry: storageOpts.RekorEntry,
 		},
 	}); err != nil {
 		return err
@@ -152,7 +189,7 @@ func (b *Backend) uploadSignature(ctx context.Context, format simple.SimpleConta
 	return nil
 }
 
-func (b *Backend) uploadAttestation(ctx context.Context, attestation *intoto.Statement, signature string, storageOpts config.StorageOpts, remoteOpts ...remote.Option) error {
+func (b *Backend) uploadAttestation(ctx context.Context, attestation *intoto.Statement, rawPayload []byte, signature string, storageOpts config.StorageOpts, remoteOpts ...remote.Option) error {
 	logger := logging.FromContext(ctx)
 	// upload an attestation for each subject
 	logger.Info("Starting to upload attestations to OCI ...")
@@ -160,7 +197,7 @@ func (b *Backend) uploadAttestation(ctx context.Context, attestation *intoto.Sta
 		imageName := fmt.Sprintf("%s@sha256:%s", subj.Name, subj.Digest["sha256"])
 		logger.Infof("Starting attestation upload to OCI for %s...", imageName)
 
-		ref, err := name.NewDigest(imageName)
+		ref, err := name.NewDigest(imageName, nameOpts(b.cfg)...)
 		if err != nil {
 			return errors.Wrapf(err, "getting digest for subj %s", imageName)
 		}
@@ -170,21 +207,26 @@ func (b *Backend) uploadAttestation(ctx context.Context, attestation *intoto.Sta
 			return errors.Wrapf(err, "getting storage repo for sub %s", imageName)
 		}
 
-		store, err := NewAttestationStorer(WithTargetRepository(repo))
+		store, err := NewAttestationStorer(
+			WithTargetRepository(repo),
+			WithEncodingFormat(b.cfg.Storage.OCI.EncodingFormat),
+		)
 		if err != nil {
 			return err
 		}
-		// TODO: make these creation opts.
 		store.remoteOpts = remoteOpts
 		if _, err := store.Store(ctx, &api.StoreRequest[name.Digest, *intoto.Statement]{
 			Object:   nil,
 			Artifact: ref,
 			Payload:  attestation,
 			Bundle: &signing.Bundle{
-				Content:   nil,
-				Signature: []byte(signature),
-				Cert:      []byte(storageOpts.Cert),
-				Chain:     []byte(storageOpts.Chain),
+				Content:     rawPayload,
+				Signature:   []byte(signature),
+				Cert:        []byte(storageOpts.Cert),
+				Chain:       []byte(storageOpts.Chain),
+				PublicKey:   storageOpts.PublicKey,
+				RekorBundle: storageOpts.RekorBundle,
+				RekorEntry:  storageOpts.RekorEntry,
 			},
 		}); err != nil {
 			return err
@@ -198,6 +240,10 @@ func (b *Backend) Type() string {
 }
 
 func (b *Backend) RetrieveSignatures(ctx context.Context, obj objects.TektonObject, opts config.StorageOpts) (map[string][]string, error) {
+	if b.cfg.Storage.OCI.EncodingFormat == config.OCIEncodingFormatSigstoreBundle {
+		return nil, fmt.Errorf("RetrieveSignatures is not supported in sigstore-bundle encoding mode; " +
+			"use the OCI 1.1 Referrers API (e.g. 'oras discover' or 'cosign download') to list referrers for the artifact digest")
+	}
 	images, err := b.RetrieveArtifact(ctx, obj, opts)
 	if err != nil {
 		return nil, err
@@ -226,6 +272,10 @@ func (b *Backend) RetrieveSignatures(ctx context.Context, obj objects.TektonObje
 }
 
 func (b *Backend) RetrievePayloads(ctx context.Context, obj objects.TektonObject, opts config.StorageOpts) (map[string]string, error) {
+	if b.cfg.Storage.OCI.EncodingFormat == config.OCIEncodingFormatSigstoreBundle {
+		return nil, fmt.Errorf("RetrievePayloads is not supported in sigstore-bundle encoding mode; " +
+			"use the OCI 1.1 Referrers API (e.g. 'oras discover' or 'cosign download attestation') to list referrers for the artifact digest")
+	}
 	var err error
 	images, err := b.RetrieveArtifact(ctx, obj, opts)
 	if err != nil {
@@ -252,13 +302,13 @@ func (b *Backend) RetrievePayloads(ctx context.Context, obj objects.TektonObject
 			if payload, err := s.Payload(); err == nil {
 				envelope := dsse.Envelope{}
 				if err := json.Unmarshal(payload, &envelope); err != nil {
-					return nil, fmt.Errorf("cannot decode the envelope: %w", err)
+					return nil, fmt.Errorf("cannot decode the envelope: %s", err)
 				}
 
 				var decodedPayload []byte
 				decodedPayload, err = base64.StdEncoding.DecodeString(envelope.Payload)
 				if err != nil {
-					return nil, fmt.Errorf("error decoding the payload: %w", err)
+					return nil, fmt.Errorf("error decoding the payload: %s", err)
 				}
 
 				m[ref] = string(decodedPayload)
@@ -271,7 +321,7 @@ func (b *Backend) RetrievePayloads(ctx context.Context, obj objects.TektonObject
 
 func (b *Backend) RetrieveArtifact(ctx context.Context, obj objects.TektonObject, opts config.StorageOpts) (map[string]oci.SignedImage, error) {
 	// Given the TaskRun, retrieve the OCI images.
-	images := artifacts.ExtractOCIImagesFromResults(ctx, obj.GetResults())
+	images := artifacts.ExtractOCIImagesFromResults(ctx, obj.GetResults(), nameOpts(b.cfg)...)
 	m := make(map[string]oci.SignedImage)
 
 	for _, image := range images {
@@ -289,11 +339,15 @@ func (b *Backend) RetrieveArtifact(ctx context.Context, obj objects.TektonObject
 	return m, nil
 }
 
-func newRepo(cfg config.Config, imageName name.Digest) (name.Repository, error) {
-	var opts []name.Option
+func nameOpts(cfg config.Config) []name.Option {
 	if cfg.Storage.OCI.Insecure {
-		opts = append(opts, name.Insecure)
+		return []name.Option{name.Insecure}
 	}
+	return nil
+}
+
+func newRepo(cfg config.Config, imageName name.Digest) (name.Repository, error) {
+	opts := nameOpts(cfg)
 
 	if storageOCIRepository := cfg.Storage.OCI.Repository; storageOCIRepository != "" {
 		return name.NewRepository(storageOCIRepository, opts...)

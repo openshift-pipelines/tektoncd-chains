@@ -178,15 +178,15 @@ func TestPipelineRun_GetResults(t *testing.T) {
 		pr := NewPipelineRunObjectV1(getPipelineRun())
 		got := pr.GetResults()
 		assert.ElementsMatch(t, got, []Result{
-			{
+			Result{
 				Name: "img1_input_ARTIFACT_INPUTS",
 				Value: *v1.NewObject(map[string]string{
 					"uri":    "gcr.io/foo/bar",
 					"digest": "sha256:05f95b26ed10668b7183c1e2da98610e91372fa9f510046d4ce5812addad86b7",
 				}),
 			},
-			{Name: "mvn1_ARTIFACT_URI", Value: *v1.NewStructuredValues("projects/test-project/locations/us-west4/repositories/test-repo/mavenArtifacts/com.google.guava:guava:31.0-jre")},
-			{Name: "mvn1_ARTIFACT_DIGEST", Value: *v1.NewStructuredValues("sha256:05f95b26ed10668b7183c1e2da98610e91372fa9f510046d4ce5812addad86b5")},
+			Result{Name: "mvn1_ARTIFACT_URI", Value: *v1.NewStructuredValues("projects/test-project/locations/us-west4/repositories/test-repo/mavenArtifacts/com.google.guava:guava:31.0-jre")},
+			Result{Name: "mvn1_ARTIFACT_DIGEST", Value: *v1.NewStructuredValues("sha256:05f95b26ed10668b7183c1e2da98610e91372fa9f510046d4ce5812addad86b5")},
 		})
 	})
 
@@ -236,6 +236,56 @@ func TestTaskRun_GetResults(t *testing.T) {
 		})
 	})
 
+}
+
+func TestTaskRun_GetRemoteStepActions(t *testing.T) {
+	t.Run("returns remote StepActions only", func(t *testing.T) {
+		tr := NewTaskRunObjectV1(&v1.TaskRun{
+			Status: v1.TaskRunStatus{
+				TaskRunStatusFields: v1.TaskRunStatusFields{
+					Steps: []v1.StepState{
+						{
+							Name:    "remote-step",
+							ImageID: "gcr.io/test/image@sha256:abc",
+							Provenance: &v1.Provenance{
+								RefSource: &v1.RefSource{
+									URI:    "git+https://github.com/tektoncd/stepactions",
+									Digest: map[string]string{"sha256": "def456"},
+								},
+							},
+						},
+						{
+							Name:    "local-step",
+							ImageID: "gcr.io/test/local@sha256:789",
+						},
+					},
+				},
+			},
+		})
+		got := tr.GetRemoteStepActions()
+		want := []StepProvenance{
+			{
+				StepName: "remote-step",
+				Provenance: &v1.Provenance{
+					RefSource: &v1.RefSource{
+						URI:    "git+https://github.com/tektoncd/stepactions",
+						Digest: map[string]string{"sha256": "def456"},
+					},
+				},
+			},
+		}
+		if d := cmp.Diff(want, got); d != "" {
+			t.Fatalf("GetRemoteStepActions (-want, +got):\n%s", d)
+		}
+	})
+
+	t.Run("returns empty when no remote StepActions", func(t *testing.T) {
+		tr := NewTaskRunObjectV1(getTaskRun())
+		got := tr.GetRemoteStepActions()
+		if len(got) != 0 {
+			t.Fatalf("expected empty slice, got %v", got)
+		}
+	})
 }
 
 func TestPipelineRun_GetGVK(t *testing.T) {

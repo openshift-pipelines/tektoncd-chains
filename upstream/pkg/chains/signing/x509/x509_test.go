@@ -19,6 +19,8 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,14 +56,12 @@ MC4CAQAwBQYDK2VwBCIEIGQn0bJwshjwuVdnd/FylMk3Gvb89aGgH49bQpgzCY0n
 // python3 -c "import jwt; import time; private_key = open('/tmp/private.pem').read(); payload = {'iat': int(time.time()), 'exp': int(time.time()) + 3600 * 24 * 365 * 10, 'iss': 'user123'}; print(jwt.encode(payload, private_key, algorithm='RS256'))"
 const token = `eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NjIzMTIzOTQsImV4cCI6MjA3NzY3MjM5NCwiaXNzIjoidXNlcjEyMyJ9.Adm27mf955gZA2pcWLqF4LLrqzFbXYsdYNg1sScF9MbyeuE-4eVpqV91Rk-iRwwIrtKuOVkEDdulrAqeuIhMxGB7jNXWXxf6sVEHV57_QgB0KR_z-JVxEbTZBu6nIVBwDxmVFGQFVMtZbqsyX8J4F_jp0pSInFPqYQbS9xAGhvOnni_owp325Siev2Z-kWsnTTFOTi0C9g9BApPxXQEE17COYdXjxsBCJQQttb1Ww7IQLCf59wU5ZpNM7npzxvKuOBT1kmHPp1ZDCNxfA_a6JMIB4NQAzYV0ULRbXNftxwglFoyitWge-SyxohnTVfV1gplE8qi6kR2CQJORBMvx6w`
 
-const testTrueValue = "true"
-
 func TestCreateSignerFulcioEnabledDefaultTokenFileMissing(t *testing.T) {
 	ctx := logtesting.TestContextWithLogger(t)
 	d := t.TempDir()
 
 	data := make(map[string]string)
-	data["signers.x509.fulcio.enabled"] = testTrueValue
+	data["signers.x509.fulcio.enabled"] = "true"
 	cfg, err := config.NewConfigFromMap(data)
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +90,7 @@ func TestCreateSignerFulcioEnabled(t *testing.T) {
 	}
 
 	data := make(map[string]string)
-	data["signers.x509.fulcio.enabled"] = testTrueValue
+	data["signers.x509.fulcio.enabled"] = "true"
 	data["signers.x509.identity.token.file"] = tk
 	cfg, err := config.NewConfigFromMap(data)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestCreateSignerFulcioEnabledFilesystemProvider(t *testing.T) {
 	}
 
 	data := make(map[string]string)
-	data["signers.x509.fulcio.enabled"] = testTrueValue
+	data["signers.x509.fulcio.enabled"] = "true"
 	data["signers.x509.identity.token.file"] = tk
 	data["signers.x509.fulcio.provider"] = "filesystem"
 	cfg, err := config.NewConfigFromMap(data)
@@ -146,6 +146,35 @@ func TestCreateSignerFulcioEnabledFilesystemProvider(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+}
+
+// TestInitializeTUFWithWritableCacheDir verifies that initializeTUF() succeeds
+// past the filesystem step when TUF_ROOT points to a writable directory. This
+// exercises the real code path that fails in the Chains distroless container
+// when readOnlyRootFilesystem is true and no writable cache location is
+// provided (see SRVKP-9439). The mock server serves invalid TUF metadata, so
+// we expect a TUF validation error — but NOT a filesystem error.
+func TestInitializeTUFWithWritableCacheDir(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"signed":{"_type":"root","version":1},"signatures":[]}`))
+	}))
+	defer ts.Close()
+
+	writableDir := t.TempDir()
+	t.Setenv("TUF_ROOT", filepath.Join(writableDir, ".sigstore", "root"))
+
+	ctx := logtesting.TestContextWithLogger(t)
+	err := initializeTUF(ctx, ts.URL)
+	if err == nil {
+		return
+	}
+	if strings.Contains(err.Error(), "read-only file system") ||
+		strings.Contains(err.Error(), "permission denied") ||
+		strings.Contains(err.Error(), "creating cached local store") {
+		t.Fatalf("Got filesystem error with writable TUF_ROOT: %v", err)
+	}
+	t.Logf("TUF init got past filesystem step (expected metadata error): %v", err)
 }
 
 func TestSigner_SignECDSA(t *testing.T) {
@@ -223,5 +252,40 @@ func TestSigner_SignED25519(t *testing.T) {
 	}
 	if !ed25519.Verify(pubKey, rawPayload, []byte(signature)) {
 		t.Error("invalid signature")
+	}
+}
+
+func TestNewSignerMalformedX509Key(t *testing.T) {
+	ctx := logtesting.TestContextWithLogger(t)
+	d := t.TempDir()
+	p := filepath.Join(d, "x509.pem")
+	if err := os.WriteFile(p, []byte("this is not a PEM block"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := NewSigner(ctx, d, config.Config{})
+	if err == nil {
+		t.Fatal("expected an error for a key file without a PEM block, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to decode PEM block") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNewSignerUnsupportedX509KeyType(t *testing.T) {
+	ctx := logtesting.TestContextWithLogger(t)
+	d := t.TempDir()
+	p := filepath.Join(d, "x509.pem")
+	// ed25519 keys are a valid PKCS8 key but not supported by the x509 signer.
+	if err := os.WriteFile(p, []byte(ed25519Priv), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := NewSigner(ctx, d, config.Config{})
+	if err == nil {
+		t.Fatal("expected an error for an unsupported key type, got nil")
+	}
+	if !strings.Contains(err.Error(), "unsupported private key type") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
