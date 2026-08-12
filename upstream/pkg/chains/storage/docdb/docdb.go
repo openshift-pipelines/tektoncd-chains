@@ -21,14 +21,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/config"
 	"gocloud.dev/docstore"
-	_ "gocloud.dev/docstore/awsdynamodb"
+	_ "gocloud.dev/docstore/awsdynamodb/v2" // register DynamoDB URL opener
 	_ "gocloud.dev/docstore/gcpfirestore"
 	"gocloud.dev/docstore/mongodocstore"
 	_ "gocloud.dev/docstore/mongodocstore"
@@ -124,7 +123,15 @@ func WatchBackend(ctx context.Context, cfg config.Config, watcherStop chan bool)
 					continue
 				}
 
-				if !slices.Contains(pathsToWatch, event.Name) {
+				// Checking if the event.name matches ANY of the pathsToWatch
+				matched := false
+				for _, p := range pathsToWatch {
+					if strings.HasPrefix(event.Name, p) {
+						matched = true
+						break
+					}
+				}
+				if !matched {
 					continue
 				}
 
@@ -134,13 +141,19 @@ func WatchBackend(ctx context.Context, cfg config.Config, watcherStop chan bool)
 					if err != nil {
 						logger.Error(err)
 						backendChan <- nil
+						continue
 					}
 				} else if cfg.Storage.DocDB.MongoServerURLDir != "" {
 					updatedEnv, err = getMongoServerURLFromDir(cfg.Storage.DocDB.MongoServerURLDir)
 					if err != nil {
 						logger.Error(err)
 						backendChan <- nil
+						continue
 					}
+				}
+
+				if updatedEnv == "" {
+					continue
 				}
 
 				if updatedEnv != os.Getenv("MONGO_SERVER_URL") {

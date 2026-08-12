@@ -21,7 +21,10 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	intoto "github.com/in-toto/attestation/go/v1"
+	cbundle "github.com/sigstore/cosign/v2/pkg/cosign/bundle"
+	"github.com/sigstore/rekor/pkg/generated/models"
 	"github.com/tektoncd/chains/pkg/artifacts"
+	"github.com/tektoncd/chains/pkg/chains/annotations"
 	"github.com/tektoncd/chains/pkg/chains/formats"
 	"github.com/tektoncd/chains/pkg/chains/objects"
 	"github.com/tektoncd/chains/pkg/chains/signing"
@@ -141,13 +144,26 @@ func (o *ObjectSigner) Sign(ctx context.Context, tektonObj objects.TektonObject)
 		// Extract all the "things" to be signed.
 		// We might have a few of each type (several binaries, or images)
 		objects := signableType.ExtractObjects(ctx, tektonObj)
+
+		// Create the Rekor client once before iterating over objects since it is
+		// stateless and config-driven.
+		var tlogClient rekorClient
+		if shouldUploadTlog(cfg, tektonObj) {
+			var err error
+			tlogClient, err = getRekor(cfg.Transparency.URL)
+			if err != nil {
+				return err
+			}
+		}
+
 		// Go through each object one at a time.
 		for _, obj := range objects {
 
 			payload, err := payloader.CreatePayload(ctx, obj)
 			if err != nil {
 				logger.Error(err)
-				o.recordError(ctx, signableType.Type(), metrics.PayloadCreationError)
+				o.recordError(ctx, signableType, metrics.PayloadCreationError)
+				merr = multierror.Append(merr, fmt.Errorf("creating payload for %s: %w", signableType.Type(), err))
 				continue
 			}
 			logger.Infof("Created payload of type %s for %s %s/%s", string(payloadFormat), tektonObj.GetGVK(), tektonObj.GetNamespace(), tektonObj.GetName())
@@ -173,17 +189,56 @@ func (o *ObjectSigner) Sign(ctx context.Context, tektonObj objects.TektonObject)
 			rawPayload, err := getRawPayload(payload)
 			if err != nil {
 				logger.Warnf("Unable to marshal payload for %s: %v", signerType, err)
-				o.recordError(ctx, signableType.Type(), metrics.MarshalPayloadError)
+				o.recordError(ctx, signableType, metrics.MarshalPayloadError)
+				merr = multierror.Append(merr, fmt.Errorf("marshalling payload for %s: %w", signableType.Type(), err))
 				continue
 			}
 
 			signature, err := signer.SignMessage(bytes.NewReader(rawPayload))
 			if err != nil {
 				logger.Error(err)
-				o.recordError(ctx, signableType.Type(), metrics.SigningError)
+				o.recordError(ctx, signableType, metrics.SigningError)
+				merr = multierror.Append(merr, fmt.Errorf("signing payload for %s: %w", signableType.Type(), err))
 				continue
 			}
 			measureMetrics(ctx, metrics.SignedMessagesCount, o.Recorder)
+
+			// Upload to Rekor before storage so the bundle is available for OCI attestation annotations.
+			// On upload failure, storage proceeds but the bundle annotation will be absent —
+			// consumers that rely on the bundle for offline verification will get an attestation without it.
+			var rekorBundle *cbundle.RekorBundle
+			var storageEntry *models.LogEntryAnon
+			if tlogClient != nil {
+				entry, err := tlogClient.UploadTlog(ctx, signer, signature, rawPayload, signer.Cert(), string(payloadFormat))
+				if err != nil {
+					logger.Warnf("error uploading entry to tlog: %v", err)
+					o.recordError(ctx, signableType, metrics.TlogError)
+					merr = multierror.Append(merr, err)
+				} else {
+					logger.Infof("Uploaded entry to %s with index %d", cfg.Transparency.URL, *entry.LogIndex)
+					extraAnnotations[annotations.ChainsTransparencyAnnotation] = fmt.Sprintf("%s/api/v1/log/entries?logIndex=%d", cfg.Transparency.URL, *entry.LogIndex)
+					rekorBundle = cbundle.EntryToBundle(entry)
+					if rekorBundle != nil {
+						logger.Infof("Resolved Rekor bundle for offline verification (logIndex: %d)", rekorBundle.Payload.LogIndex)
+					} else {
+						logger.Warn("Rekor entry missing verification data, skipping bundle for offline verification")
+					}
+					// Preserve the raw entry so storage backends building a Sigstore protobuf
+					// bundle (OCI sigstore-bundle mode) can embed the tlog entry inline.
+					storageEntry = entry
+					measureMetrics(ctx, metrics.PayloadUploadedCount, o.Recorder)
+				}
+			}
+
+			// Attempt to extract the public key so storage backends that need it
+			// (e.g. protobuf-bundle OCI format) can use it without re-fetching.
+			// This is intentionally non-fatal: for the default legacy format the
+			// key is never used, so a transient KMS error here must not prevent
+			// signatures from being stored.
+			pubKey, pubKeyErr := signer.PublicKey()
+			if pubKeyErr != nil {
+				logger.Warnf("Could not extract public key from signer (will be unavailable to storage backends): %v", pubKeyErr)
+			}
 
 			// Now store those!
 			for _, backend := range sets.List[string](signableType.StorageBackend(cfg)) {
@@ -191,7 +246,7 @@ func (o *ObjectSigner) Sign(ctx context.Context, tektonObj objects.TektonObject)
 				if !ok {
 					backendErr := fmt.Errorf("could not find backend '%s' in configured backends (%v) while trying sign: %s/%s", backend, maps.Keys(o.Backends), tektonObj.GetKindName(), tektonObj.GetName())
 					logger.Error(backendErr)
-					o.recordError(ctx, signableType.Type(), metrics.StorageError)
+					o.recordError(ctx, signableType, metrics.StorageError)
 					merr = multierror.Append(merr, backendErr)
 					continue
 				}
@@ -201,38 +256,23 @@ func (o *ObjectSigner) Sign(ctx context.Context, tektonObj objects.TektonObject)
 					FullKey:       signableType.FullKey(obj),
 					Cert:          signer.Cert(),
 					Chain:         signer.Chain(),
+					PublicKey:     pubKey,
 					PayloadFormat: payloadFormat,
+					RekorBundle:   rekorBundle,
+					RekorEntry:    storageEntry,
 				}
 				if err := b.StorePayload(ctx, tektonObj, rawPayload, string(signature), storageOpts); err != nil {
 					logger.Error(err)
-					o.recordError(ctx, signableType.Type(), metrics.StorageError)
+					o.recordError(ctx, signableType, metrics.StorageError)
 					merr = multierror.Append(merr, err)
 				} else {
 					measureMetrics(ctx, metrics.SignsStoredCount, o.Recorder)
 				}
 			}
 
-			if shouldUploadTlog(cfg, tektonObj) {
-				rekorClient, err := getRekor(cfg.Transparency.URL)
-				if err != nil {
-					return err
-				}
-
-				entry, err := rekorClient.UploadTlog(ctx, signer, signature, rawPayload, signer.Cert(), string(payloadFormat))
-				if err != nil {
-					logger.Warnf("error uploading entry to tlog: %v", err)
-					o.recordError(ctx, signableType.Type(), metrics.TlogError)
-					merr = multierror.Append(merr, err)
-				} else {
-					logger.Infof("Uploaded entry to %s with index %d", cfg.Transparency.URL, *entry.LogIndex)
-					extraAnnotations[ChainsTransparencyAnnotation] = fmt.Sprintf("%s/api/v1/log/entries?logIndex=%d", cfg.Transparency.URL, *entry.LogIndex)
-					measureMetrics(ctx, metrics.PayloadUploadeCount, o.Recorder)
-				}
-			}
-
 		}
 		if merr.ErrorOrNil() != nil {
-			if retryErr := HandleRetry(ctx, tektonObj, o.Pipelineclientset, extraAnnotations); retryErr != nil {
+			if retryErr := annotations.HandleRetry(ctx, tektonObj, o.Pipelineclientset, extraAnnotations); retryErr != nil {
 				logger.Warnf("error handling retry: %v", retryErr)
 				merr = multierror.Append(merr, retryErr)
 			}
@@ -241,7 +281,7 @@ func (o *ObjectSigner) Sign(ctx context.Context, tektonObj objects.TektonObject)
 	}
 
 	// Now mark the TektonObject as signed
-	if err := MarkSigned(ctx, tektonObj, o.Pipelineclientset, extraAnnotations); err != nil {
+	if err := annotations.MarkSigned(ctx, tektonObj, o.Pipelineclientset, extraAnnotations); err != nil {
 		return err
 	}
 	measureMetrics(ctx, metrics.MarkedAsSignedCount, o.Recorder)
@@ -254,19 +294,16 @@ func measureMetrics(ctx context.Context, metrictype metrics.Metric, mtr metrics.
 	}
 }
 
-// recordError abstracts the check and calls RecordErrorMetric if appropriate.
-func (o *ObjectSigner) recordError(ctx context.Context, kind string, errType metrics.MetricErrorType) {
-	shouldRecordError := kind == "TaskRunArtifact" || kind == "PipelineRunArtifact"
-	if shouldRecordError && o.Recorder != nil {
-		o.Recorder.RecordErrorMetric(ctx, errType)
+// recordError calls RecordErrorMetric when the signable type is a TaskRun or
+// PipelineRun artifact. OCI artifacts are excluded because they share the same
+// counter namespace (and the recorder is bound per-run-type).
+func (o *ObjectSigner) recordError(ctx context.Context, signable artifacts.Signable, errType metrics.MetricErrorType) {
+	switch signable.(type) {
+	case *artifacts.TaskRunArtifact, *artifacts.PipelineRunArtifact:
+		if o.Recorder != nil {
+			o.Recorder.RecordErrorMetric(ctx, errType)
+		}
 	}
-}
-
-func HandleRetry(ctx context.Context, obj objects.TektonObject, ps versioned.Interface, annotations map[string]string) error {
-	if RetryAvailable(obj) {
-		return AddRetry(ctx, obj, ps, annotations)
-	}
-	return MarkFailed(ctx, obj, ps, annotations)
 }
 
 // getRawPayload returns the payload as a json string. If the given payload is a intoto.Statement type, protojson.Marshal
