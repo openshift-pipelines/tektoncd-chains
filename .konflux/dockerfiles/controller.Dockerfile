@@ -24,14 +24,14 @@ COPY --from=builder /tmp/controller /ko-app/controller
 COPY head ${KO_DATA_PATH}/HEAD
 
 LABEL \
-    com.redhat.component="openshift-pipelines-chains-controller-rhel10-container" \
+    com.redhat.component="openshift-pipelines-chains-controller--rhel10-container" \
     cpe="cpe:/a:redhat:openshift_pipelines:nightly::el10" \
     description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
     io.k8s.description="Red Hat OpenShift Pipelines tektoncd-chains controller" \
     io.k8s.display-name="Red Hat OpenShift Pipelines tektoncd-chains controller" \
     io.openshift.tags="tekton,openshift,tektoncd-chains,controller" \
     maintainer="pipelines-extcomm@redhat.com" \
-    name="openshift-pipelines/pipelines-chains-controller-rhel10" \
+    name="openshift-pipelines/pipelines-chains-controller--rhel10" \
     summary="Red Hat OpenShift Pipelines tektoncd-chains controller" \
     version="nightly"
 
