@@ -3,8 +3,8 @@ module github.com/tektoncd/chains
 go 1.26.6
 
 require (
-	cloud.google.com/go/compute/metadata v0.9.0
-	cloud.google.com/go/storage v1.67.1
+	cloud.google.com/go/compute/metadata v0.9.1
+	cloud.google.com/go/storage v1.68.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/golangci/golangci-lint v1.64.8
 	github.com/google/addlicense v1.2.0
@@ -31,7 +31,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/azure v1.10.9
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.10.9
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.10.9
-	github.com/spiffe/go-spiffe/v2 v2.8.1
+	github.com/spiffe/go-spiffe/v2 v2.8.2
 	github.com/stretchr/testify v1.12.1
 	github.com/tektoncd/pipeline v1.16.0
 	github.com/tektoncd/plumbing v0.0.0-20250115133002-f515628dffea
@@ -44,7 +44,7 @@ require (
 	gocloud.dev/pubsub/kafkapubsub v0.46.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
-	google.golang.org/grpc v1.83.2
+	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	k8s.io/api v0.36.4
 	k8s.io/apimachinery v0.36.4
@@ -95,7 +95,7 @@ require (
 	github.com/Crocmagnon/fatcontext v0.7.1 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
 	github.com/GaijinEntertainment/go-exhaustruct/v3 v3.3.1 // indirect
-	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.33.0 // indirect
+	github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp v1.34.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.57.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.57.0 // indirect
 	github.com/IBM/sarama v1.47.0 // indirect
@@ -202,7 +202,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structtag v1.2.0 // indirect
-	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/firefart/nonamedreturns v1.0.5 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.1 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
@@ -210,7 +210,7 @@ require (
 	github.com/ghostiam/protogetter v0.3.9 // indirect
 	github.com/go-chi/chi/v5 v5.3.1 // indirect
 	github.com/go-critic/go-critic v0.12.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.5 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
