@@ -36,9 +36,11 @@ spec:
   - name: additional-tags
     value:
       - "next"
-  - name: prefetch-input
-    value: |
-      {"type": "rpm", "path": ".konflux/rpms"}
+  - name: repo-name
+    value: "tektoncd-chains"
+  - name: slack-group-ids
+    value:
+      - "S050DUERQ4X"
   pipelineRef:
     name: docker-build-ta
   taskRunTemplate:
