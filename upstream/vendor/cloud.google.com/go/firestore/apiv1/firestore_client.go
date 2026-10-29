@@ -222,7 +222,6 @@ func defaultCallOptions() *CallOptions {
 				return gax.OnCodes([]codes.Code{
 					codes.Unavailable,
 					codes.Internal,
-					codes.DeadlineExceeded,
 				}, gax.Backoff{
 					Initial:    100 * time.Millisecond,
 					Max:        60000 * time.Millisecond,
@@ -452,8 +451,7 @@ func defaultRESTCallOptions() *CallOptions {
 					Multiplier: 1.30,
 				},
 					http.StatusServiceUnavailable,
-					http.StatusInternalServerError,
-					http.StatusGatewayTimeout)
+					http.StatusInternalServerError)
 			}),
 		},
 		RunAggregationQuery: []gax.CallOption{
@@ -594,7 +592,7 @@ type Client struct {
 
 // Wrapper methods routed to the internal client.
 
-// Close closes the connection to the API service. The user should invoke this when
+// Close closes the connection to the API service. **Always** call Close() when
 // the client is no longer required.
 func (c *Client) Close() error {
 	return c.internalClient.Close()
@@ -605,6 +603,16 @@ func (c *Client) Close() error {
 // use by Google-written clients.
 func (c *Client) setGoogleClientInfo(keyval ...string) {
 	c.internalClient.setGoogleClientInfo(keyval...)
+}
+
+// SetGoogleClientInfo sets the name and version of the application in
+// the `x-goog-api-client` header passed on each request. Intended for
+// use by Google-written clients.
+//
+// SetGoogleClientInfo is not concurrency-safe and should only be invoked
+// sequentially before concurrent operations begin.
+func (c *Client) SetGoogleClientInfo(keyval ...string) {
+	c.setGoogleClientInfo(keyval...)
 }
 
 // Connection returns a connection to the API service.
@@ -872,7 +880,7 @@ func (c *gRPCClient) setGoogleClientInfo(keyval ...string) {
 	}
 }
 
-// Close closes the connection to the API service. The user should invoke this when
+// Close closes the connection to the API service. **Always** call Close() when
 // the client is no longer required.
 func (c *gRPCClient) Close() error {
 	return c.connPool.Close()
@@ -992,7 +1000,7 @@ func (c *restClient) setGoogleClientInfo(keyval ...string) {
 	}
 }
 
-// Close closes the connection to the API service. The user should invoke this when
+// Close closes the connection to the API service. **Always** call Close() when
 // the client is no longer required.
 func (c *restClient) Close() error {
 	// Replace httpClient with nil to force cleanup.
@@ -1037,7 +1045,7 @@ func (c *gRPCClient) ListDocuments(ctx context.Context, req *firestorepb.ListDoc
 	}
 	opts = append((*c.CallOptions).ListDocuments[0:len((*c.CallOptions).ListDocuments):len((*c.CallOptions).ListDocuments)], opts...)
 	it := &DocumentIterator{}
-	req = proto.Clone(req).(*firestorepb.ListDocumentsRequest)
+	req = proto.CloneOf(req)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*firestorepb.Document, string, error) {
 		resp := &firestorepb.ListDocumentsResponse{}
 		if pageToken != "" {
@@ -1292,7 +1300,7 @@ func (c *gRPCClient) PartitionQuery(ctx context.Context, req *firestorepb.Partit
 	}
 	opts = append((*c.CallOptions).PartitionQuery[0:len((*c.CallOptions).PartitionQuery):len((*c.CallOptions).PartitionQuery)], opts...)
 	it := &CursorIterator{}
-	req = proto.Clone(req).(*firestorepb.PartitionQueryRequest)
+	req = proto.CloneOf(req)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*firestorepb.Cursor, string, error) {
 		resp := &firestorepb.PartitionQueryResponse{}
 		if pageToken != "" {
@@ -1381,7 +1389,7 @@ func (c *gRPCClient) ListCollectionIds(ctx context.Context, req *firestorepb.Lis
 	}
 	opts = append((*c.CallOptions).ListCollectionIds[0:len((*c.CallOptions).ListCollectionIds):len((*c.CallOptions).ListCollectionIds)], opts...)
 	it := &StringIterator{}
-	req = proto.Clone(req).(*firestorepb.ListCollectionIdsRequest)
+	req = proto.CloneOf(req)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
 		resp := &firestorepb.ListCollectionIdsResponse{}
 		if pageToken != "" {
@@ -1527,7 +1535,7 @@ func (c *gRPCClient) ListOperations(ctx context.Context, req *longrunningpb.List
 	}
 	opts = append((*c.CallOptions).ListOperations[0:len((*c.CallOptions).ListOperations):len((*c.CallOptions).ListOperations)], opts...)
 	it := &OperationIterator{}
-	req = proto.Clone(req).(*longrunningpb.ListOperationsRequest)
+	req = proto.CloneOf(req)
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*longrunningpb.Operation, string, error) {
 		resp := &longrunningpb.ListOperationsResponse{}
 		if pageToken != "" {
@@ -1588,6 +1596,11 @@ func (c *restClient) GetDocument(ctx context.Context, req *firestorepb.GetDocume
 		}
 		params.Add("readTime", string(field[1:len(field)-1]))
 	}
+	if items := req.GetRequestOptions().GetRequestTags(); len(items) > 0 {
+		for _, item := range items {
+			params.Add("requestOptions.requestTags", fmt.Sprintf("%v", item))
+		}
+	}
 	if req.GetTransaction() != nil {
 		params.Add("transaction", fmt.Sprintf("%v", req.GetTransaction()))
 	}
@@ -1638,7 +1651,7 @@ func (c *restClient) GetDocument(ctx context.Context, req *firestorepb.GetDocume
 // ListDocuments lists documents.
 func (c *restClient) ListDocuments(ctx context.Context, req *firestorepb.ListDocumentsRequest, opts ...gax.CallOption) *DocumentIterator {
 	it := &DocumentIterator{}
-	req = proto.Clone(req).(*firestorepb.ListDocumentsRequest)
+	req = proto.CloneOf(req)
 	unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*firestorepb.Document, string, error) {
 		resp := &firestorepb.ListDocumentsResponse{}
@@ -1678,6 +1691,11 @@ func (c *restClient) ListDocuments(ctx context.Context, req *firestorepb.ListDoc
 				return nil, "", err
 			}
 			params.Add("readTime", string(field[1:len(field)-1]))
+		}
+		if items := req.GetRequestOptions().GetRequestTags(); len(items) > 0 {
+			for _, item := range items {
+				params.Add("requestOptions.requestTags", fmt.Sprintf("%v", item))
+			}
 		}
 		if req.GetShowMissing() {
 			params.Add("showMissing", fmt.Sprintf("%v", req.GetShowMissing()))
@@ -1766,6 +1784,11 @@ func (c *restClient) UpdateDocument(ctx context.Context, req *firestorepb.Update
 			params.Add("mask.fieldPaths", fmt.Sprintf("%v", item))
 		}
 	}
+	if items := req.GetRequestOptions().GetRequestTags(); len(items) > 0 {
+		for _, item := range items {
+			params.Add("requestOptions.requestTags", fmt.Sprintf("%v", item))
+		}
+	}
 	if items := req.GetUpdateMask().GetFieldPaths(); len(items) > 0 {
 		for _, item := range items {
 			params.Add("updateMask.fieldPaths", fmt.Sprintf("%v", item))
@@ -1834,6 +1857,11 @@ func (c *restClient) DeleteDocument(ctx context.Context, req *firestorepb.Delete
 			return err
 		}
 		params.Add("currentDocument.updateTime", string(field[1:len(field)-1]))
+	}
+	if items := req.GetRequestOptions().GetRequestTags(); len(items) > 0 {
+		for _, item := range items {
+			params.Add("requestOptions.requestTags", fmt.Sprintf("%v", item))
+		}
 	}
 
 	baseUrl.RawQuery = params.Encode()
@@ -2485,7 +2513,7 @@ func (c *runAggregationQueryRESTStreamClient) RecvMsg(m interface{}) error {
 // can be used by RunQuery as starting/end points for the query results.
 func (c *restClient) PartitionQuery(ctx context.Context, req *firestorepb.PartitionQueryRequest, opts ...gax.CallOption) *CursorIterator {
 	it := &CursorIterator{}
-	req = proto.Clone(req).(*firestorepb.PartitionQueryRequest)
+	req = proto.CloneOf(req)
 	m := protojson.MarshalOptions{AllowPartial: true, UseEnumNumbers: true}
 	unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*firestorepb.Cursor, string, error) {
@@ -2579,7 +2607,7 @@ func (c *restClient) Listen(ctx context.Context, opts ...gax.CallOption) (firest
 // ListCollectionIds lists all the collection IDs underneath a document.
 func (c *restClient) ListCollectionIds(ctx context.Context, req *firestorepb.ListCollectionIdsRequest, opts ...gax.CallOption) *StringIterator {
 	it := &StringIterator{}
-	req = proto.Clone(req).(*firestorepb.ListCollectionIdsRequest)
+	req = proto.CloneOf(req)
 	m := protojson.MarshalOptions{AllowPartial: true, UseEnumNumbers: true}
 	unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
 	it.InternalFetch = func(pageSize int, pageToken string) ([]string, string, error) {
@@ -2746,6 +2774,11 @@ func (c *restClient) CreateDocument(ctx context.Context, req *firestorepb.Create
 	if items := req.GetMask().GetFieldPaths(); len(items) > 0 {
 		for _, item := range items {
 			params.Add("mask.fieldPaths", fmt.Sprintf("%v", item))
+		}
+	}
+	if items := req.GetRequestOptions().GetRequestTags(); len(items) > 0 {
+		for _, item := range items {
+			params.Add("requestOptions.requestTags", fmt.Sprintf("%v", item))
 		}
 	}
 
@@ -2933,7 +2966,7 @@ func (c *restClient) GetOperation(ctx context.Context, req *longrunningpb.GetOpe
 // ListOperations is a utility method from google.longrunning.Operations.
 func (c *restClient) ListOperations(ctx context.Context, req *longrunningpb.ListOperationsRequest, opts ...gax.CallOption) *OperationIterator {
 	it := &OperationIterator{}
-	req = proto.Clone(req).(*longrunningpb.ListOperationsRequest)
+	req = proto.CloneOf(req)
 	unm := protojson.UnmarshalOptions{AllowPartial: true, DiscardUnknown: true}
 	it.InternalFetch = func(pageSize int, pageToken string) ([]*longrunningpb.Operation, string, error) {
 		resp := &longrunningpb.ListOperationsResponse{}
