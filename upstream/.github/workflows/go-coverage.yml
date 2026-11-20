@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Harden runner
-        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
+        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
         with:
           egress-policy: audit
 
@@ -49,7 +49,11 @@ jobs:
       - name: Generate coverage
         working-directory: ${{ github.workspace }}/src/github.com/tektoncd/chains
         run: |
-          go test -coverprofile=coverage.txt -covermode=atomic ./... || true
+          PACKAGES=$(go list ./... | grep -vE '/cmd(/|$)|/vendor(/|$)|/hack(/|$)|/test(/|$)|/config(/|$)|/docs(/|$)|/examples(/|$)|/images(/|$)|/release(/|$)|/fake(/|$)')
+          COVERPKG=$(echo $PACKAGES | tr ' ' ',')
+          go test -coverprofile=coverage_raw.txt -covermode=atomic -coverpkg="$COVERPKG" $PACKAGES
+          grep -vE 'zz_generated\.deepcopy\.go' coverage_raw.txt > coverage.txt
+          rm -f coverage_raw.txt
           echo "Generated coverage profile"
 
       - name: Archive coverage results
@@ -59,17 +63,18 @@ jobs:
           path: ${{ github.workspace }}/src/github.com/tektoncd/chains/coverage.txt
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         continue-on-error: true
         with:
           files: ${{ github.workspace }}/src/github.com/tektoncd/chains/coverage.txt
           flags: unit-tests
           use_oidc: true
           fail_ci_if_error: true
+          disable_search: true
 
       - name: Comment on PR
         if: github.event_name == 'pull_request'
-        uses: fgrosse/go-coverage-report@e432de98ee94a276e8f666d25bfd76347665f75b # v1.3.1
+        uses: fgrosse/go-coverage-report@c4bf7e78d1379325814b4dd42d80e526082e788b # v1.5.0
         continue-on-error: true # This may fail if artifact on main branch does not exist (first run or expired)
         with:
           token: ${{ secrets.CHATOPS_TOKEN }}
