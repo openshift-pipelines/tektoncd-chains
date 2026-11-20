@@ -2095,7 +2095,7 @@ github.com/syndtr/goleveldb/leveldb/util
 ## explicit; go 1.22.0
 github.com/tdakkota/asciicheck
 # github.com/tektoncd/pipeline v1.15.5
-## explicit; go 1.26.10
+## explicit; go 1.27.3
 github.com/tektoncd/pipeline/internal/artifactref
 github.com/tektoncd/pipeline/pkg/apis/config
 github.com/tektoncd/pipeline/pkg/apis/config/resolver
